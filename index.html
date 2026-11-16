@@ -133,6 +133,21 @@
   .fld label{display:block;font-size:12.5px;font-weight:700;color:var(--mute);margin-bottom:4px}
   .fld input,.fld textarea,.fld select{width:100%;font:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9d4ce;border-radius:9px;background:#fff;color:var(--ink)}
   .fld textarea{min-height:130px;resize:vertical}
+  .gridf .gh,.gridf .grow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.25fr) 28px;gap:6px;margin-bottom:6px;align-items:center}
+  .gridf .gh span{font-size:12px;font-weight:700;color:var(--mute);padding-left:2px}
+  .gridf .grow input{padding:8px 6px;font-size:14.5px;min-width:0;width:100%}
+  .gridf .gx{appearance:none;border:1px solid var(--line);background:#fff;border-radius:7px;height:34px;color:var(--red);cursor:pointer;font-size:13px}
+  .gridf .gbox{max-height:44vh;overflow:auto;padding-bottom:2px}
+  .gridf .gadd{margin-top:2px}
+  .item-sel{flex:0 0 auto;width:22px;height:22px;margin:8px 2px 0 0;accent-color:var(--g2);cursor:pointer}
+  .grp .gsel{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--mute);margin-left:8px;cursor:pointer;font-weight:400}
+  .grp .gsel input{width:18px;height:18px;accent-color:var(--g2)}
+  li.item.edit.picked{background:var(--g-bg)}
+  #selBar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:none;background:#1c2420;color:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+  #selBar.on{display:block}
+  #selBar .in{max-width:880px;margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #selBar b{flex:1;min-width:90px;font-size:14px}
+  #selBar .btn{padding:8px 12px;font-size:14px}
   .fld .hint{font-size:12px;color:var(--mute);margin-top:4px;white-space:pre-line}
   .dlg-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
   .dlg-actions .btn{padding:10px 16px;font-size:14px}
@@ -155,6 +170,7 @@
   </div>
 </header>
 
+<div id="selBar"><div class="in"><b id="selCnt"></b><button class="btn line" data-act="sel-move">이동</button><button class="btn dl" data-act="sel-del">삭제</button><button class="btn line" data-act="sel-clear">해제</button></div></div>
 <main>
   <div id="setup"></div>
   <div id="view"></div>
@@ -225,12 +241,10 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 /* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
 const firebaseConfig = {
-  apiKey: "AIzaSyCwuWD8Zks7PDppvkU1vlCXQlvDFA9_PJs",
-  authDomain: "checklist-f6795.firebaseapp.com",
-  projectId: "checklist-f6795",
-  storageBucket: "checklist-f6795.firebasestorage.app",
-  messagingSenderId: "901255037556",
-  appId: "1:901255037556:web:55953089f92bcb788ec721"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
 };
 const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
 const TPL_COL = "checklistTemplates"; // 저장된 템플릿 (구조만, 체크 없음)
@@ -380,14 +394,14 @@ function parseOutline(text){
     else {
       const t = line.replace(/^(?:[-*•□☐]|\[[ xX]?\])\s*/, "").trim(); if(!t) continue;
       if(rosterMode){   // # [분장] 아래 줄: 업무 | 담당자 | 시간·장소 | 비고
-        const [task, who, when, note] = t.split("|").map(x => x.trim());
+        const [task, who, when, note] = t.split(t.includes("\t") ? "\t" : "|").map(x => x.trim());
         if(task) roster.push({ task, who:who || "", when:when || "", note:note || "" });
         continue;
       }
       if(!sec) newSec("체크리스트");
       if(!grp) newGrp("");
       if(sec.kind === "supply"){
-        const [name, qty, owner] = t.split("|").map(x => x.trim());
+        const [name, qty, owner] = t.split(t.includes("\t") ? "\t" : "|").map(x => x.trim());
         if(!name) continue;
         grp.items.push({ id:uid("i"), text:name, ...(qty ? { qty } : {}), ...(owner ? { owner } : {}) });
       } else grp.items.push({ id:uid("i"), text:t });
@@ -409,6 +423,7 @@ const myName = () => staffName || (user && (user.displayName || user.email)) || 
 const lists = new Map();
 let loaded = false, tab = "active", route = { name:"home", id:null };
 let onlyOpen = false, editMode = false, ltab = "task", noteT = null, noteEdit = null;
+const sel = new Set();   // 편집 모드에서 선택한 항목 id
 const closed = new Set();
 let syncInfo = { ok:false, fromCache:false, pending:false, err:"" };
 let unsub = null, subMode = null;
@@ -422,6 +437,7 @@ function openForm({ title, message, fields = [], ok = "확인", danger = false, 
       const id = "f" + i;
       let inp;
       if(f.type === "textarea") inp = `<textarea id="${id}" placeholder="${esc(f.placeholder||"")}">${esc(f.value||"")}</textarea>`;
+      else if(f.type === "grid") inp = `<div id="${id}" class="gridf">${gridHTML(f)}</div>`;
       else if(f.type === "select") inp = `<select id="${id}">${f.options.map(o => `<option value="${esc(o.value)}" ${o.value===f.value?"selected":""}>${esc(o.label)}</option>`).join("")}</select>`;
       else inp = `<input id="${id}" type="text" value="${esc(f.value||"")}" placeholder="${esc(f.placeholder||"")}" ${f.required?"required":""} autocomplete="off">`;
       return `<div class="fld" data-key="${f.key}"><label for="${id}">${esc(f.label)}</label>${inp}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:""}</div>`;
@@ -430,17 +446,72 @@ function openForm({ title, message, fields = [], ok = "확인", danger = false, 
     const finish = v => { if(settled) return; settled = true; if(d.open){ d._skip = true; d.close(); } res(v); };
     const submit = () => {
       const out = {};
-      fields.forEach((f, i) => { out[f.key] = $("f" + i).value; });
+      fields.forEach((f, i) => { out[f.key] = f.type === "grid" ? gridRows($("f" + i), f) : $("f" + i).value; });
       finish(out);
     };
     $("dlgOk").onclick = submit;
     $("dlgForm").onsubmit = e => { e.preventDefault(); submit(); };
-    $("dlgBody").onkeydown = e => { if(e.key === "Enter" && e.target.tagName === "INPUT"){ e.preventDefault(); submit(); } };
+    $("dlgBody").onkeydown = e => {
+      if(e.key === "Enter" && e.target.tagName === "INPUT"){
+        e.preventDefault();
+        if(e.target.closest(".gridf")) gridEnter(e.target); else submit();
+      }
+    };
+    $("dlgBody").onclick = e => { const g = e.target.closest(".gridf"); if(g) gridClick(g, e.target); };
+    $("dlgBody").onpaste = e => { const g = e.target.closest(".gridf"); if(g && e.target.tagName === "INPUT") gridPaste(g, e); };
     $("dlgCancel").onclick = () => finish(null);
     d.onclose = () => { if(d._skip){ d._skip = false; return; } finish(null); };   // 바로 이어서 다시 열 때 이전 창의 닫힘 이벤트는 무시
     d.showModal();
     if(after) after($("dlgBody"));
     const first = $("dlgBody").querySelector("input,textarea,select"); if(first) first.focus();
+  });
+}
+/* ----- 표(그리드) 입력: 준비물 여러 개를 칸에 나눠 입력 ----- */
+const GCOLS = [{ k:"name", label:"이름", ph:"예) 인화용지" }, { k:"qty", label:"수량", ph:"200장" }, { k:"owner", label:"담당", ph:"김팀장" }];
+function gridRowHTML(v = {}){
+  return `<div class="grow">${GCOLS.map(c => `<input data-k="${c.k}" type="text" value="${esc(v[c.k] || "")}" placeholder="${esc(c.ph)}" autocomplete="off" ${c.k==="owner"?'list="ownerList"':""} enterkeyhint="next">`).join("")}<button type="button" class="gx" data-gx title="이 줄 지우기">✕</button></div>`;
+}
+function gridHTML(f){
+  const names = [...new Set(staffRows.map(x => String(x.name || "").trim()).filter(Boolean))];
+  return `<datalist id="ownerList">${names.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
+    <div class="gh">${GCOLS.map(c => `<span>${c.label}</span>`).join("")}<span></span></div>
+    <div class="gbox">${gridRowHTML().repeat(f.rows || 4)}</div>
+    <button type="button" class="btn line sm gadd" data-gadd>＋ 줄 추가</button>`;
+}
+function gridRows(g, f){
+  return [...g.querySelectorAll(".grow")].map(r => {
+    const o = {}; r.querySelectorAll("input").forEach(i => { o[i.dataset.k] = i.value.trim(); }); return o;
+  }).filter(o => o.name || o.qty || o.owner);
+}
+function gridAddRow(g, v){
+  const box = g.querySelector(".gbox"); box.insertAdjacentHTML("beforeend", gridRowHTML(v));
+  box.scrollTop = box.scrollHeight; return box.lastElementChild;
+}
+function gridClick(g, t){
+  if(t.closest("[data-gadd]")){ gridAddRow(g).querySelector("input").focus(); return; }
+  const x = t.closest("[data-gx]");
+  if(x){
+    const rows = g.querySelectorAll(".grow");
+    if(rows.length > 1) x.closest(".grow").remove();
+    else x.closest(".grow").querySelectorAll("input").forEach(i => { i.value = ""; });
+  }
+}
+function gridEnter(inp){
+  const all = [...inp.closest(".gridf").querySelectorAll(".grow input")], i = all.indexOf(inp);
+  if(i < all.length - 1) all[i + 1].focus();
+  else gridAddRow(inp.closest(".gridf")).querySelector("input").focus();
+}
+function gridPaste(g, e){
+  const text = (e.clipboardData || window.clipboardData).getData("text");
+  if(!/[\t\n|]/.test(text.trim())) return;          // 한 칸짜리 붙여넣기는 그대로
+  e.preventDefault();
+  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/, "")).filter(l => l.trim());
+  const cur = e.target.closest(".grow"), col = GCOLS.findIndex(c => c.k === e.target.dataset.k);
+  let row = cur;
+  lines.forEach((ln, n) => {
+    const cells = (ln.includes("\t") ? ln.split("\t") : ln.split("|")).map(x => x.trim());
+    if(n > 0 || !row) row = (row && row.nextElementSibling) || gridAddRow(g);
+    cells.forEach((v, k) => { const c = row.querySelectorAll("input")[col + k]; if(c) c.value = v; });
   });
 }
 const confirmBox = (title, message, ok, danger = true) => openForm({ title, message, ok, danger }).then(v => v !== null);
@@ -519,7 +590,7 @@ function renderSync(){
 function readRoute(){
   const m = location.hash.match(/^#\/c\/([^/?]+)/);
   route = m ? { name:"list", id:decodeURIComponent(m[1]) } : { name:"home", id:null };
-  onlyOpen = false; editMode = false; ltab = "task"; closed.clear();
+  onlyOpen = false; editMode = false; ltab = "task"; closed.clear(); sel.clear();
   if(noteT){ noteT = null; noteEdit = null; if($("ndlg").open) $("ndlg").close(); }
   window.scrollTo(0, 0);
   render();
@@ -691,7 +762,7 @@ function render(){
   const isList = route.name === "list";
   $("backBtn").style.display = isList ? "block" : "none";
   $("total").style.display = isList ? "flex" : "none";
-  if(isList) renderList(); else renderHome();
+  if(isList) renderList(); else { renderHome(); $("selBar").classList.remove("on"); }
   renderNotes();
 }
 function renderSetup(){
@@ -802,15 +873,16 @@ function renderList(){
         const memo = last ? `<span class="memo"><b>${esc(last.byName || last.by || "")}</b> ${esc(last.text.replace(/\s*\n\s*/g, " ").slice(0, 60))}${last.text.length > 60 ? "…" : ""}</span>` : "";
         const nb = (nl.length || canCheck) ? `<button class="note-btn ${nl.length ? "has" : ""}" data-act="note-open" data-t="${i.id}" title="메모">💬${nl.length ? " " + nl.length : ""}</button>` : "";
         const meta = c.checked ? `<span class="meta">✓ ${esc(c.byName || c.by || "")} · ${esc(fmt(c.at))}</span>` : "";
-        if(editing) return `<li class="item edit"><span class="txt">${esc(i.text)}${sup}</span><span class="ctl">
+        if(editing) return `<li class="item edit ${sel.has(i.id)?"picked":""}"><input type="checkbox" class="item-sel" data-act="item-sel" data-i="${i.id}" ${sel.has(i.id)?"checked":""} aria-label="선택"><span class="txt">${esc(i.text)}${sup}</span><span class="ctl">
           ${ib("item-up","↑",`${ga} data-i="${i.id}"`)}${ib("item-down","↓",`${ga} data-i="${i.id}"`)}${ib("item-edit","✎",`${ga} data-i="${i.id}"`)}${ib("item-del","✕",`${ga} data-i="${i.id}"`,"del")}</span></li>`;
         return `<li class="item ${c.checked?"done":""} ${canCheck?"":"lock"}" data-item="${i.id}"><label>
           <input type="checkbox" ${c.checked?"checked":""} ${canCheck?"":"tabindex=\"-1\""}>
           <span class="txt"><span class="t">${esc(i.text)}</span>${sup}${meta}${memo}</span></label>${nb}</li>`;
       });
       if(editing){
-        body += `<div class="grp"><span class="nm">${esc(g.name || "(이름 없는 그룹)")}</span><span class="ctl">
-          ${ib("grp-up","↑",ga)}${ib("grp-down","↓",ga)}${ib("grp-edit","✎",ga)}${ib("grp-del","✕",ga,"del")}</span></div>
+        const allSel = g.items.length && g.items.every(i => sel.has(i.id));
+        body += `<div class="grp"><span class="nm">${esc(g.name || "(이름 없는 그룹)")}${g.items.length?`<label class="gsel"><input type="checkbox" data-act="grp-sel" ${ga} ${allSel?"checked":""}>전체</label>`:""}</span><span class="ctl">
+          ${ib("grp-up","↑",ga)}${ib("grp-move","⇄",ga)}${ib("grp-down","↓",ga)}${ib("grp-edit","✎",ga)}${ib("grp-del","✕",ga,"del")}</span></div>
           <ul>${lis.join("")}</ul><div class="add-row">${ib("item-add","＋ 항목 추가",ga)}</div>`;
       } else if(lis.length){
         shown += lis.length;
@@ -833,6 +905,14 @@ function renderList(){
       : `<div class="empty">항목이 없어요.</div>`;
   }
   $("view").innerHTML = html;
+  renderSel(l, editing);
+}
+function renderSel(l, editing){
+  const ids = new Set(); if(l) l.sections.forEach(s => s.groups.forEach(g => g.items.forEach(i => ids.add(i.id))));
+  [...sel].forEach(x => { if(!ids.has(x)) sel.delete(x); });
+  const bar = $("selBar");
+  bar.classList.toggle("on", !!(editing && sel.size));
+  $("selCnt").textContent = `${sel.size}개 선택됨`;
 }
 
 /* ===== 메모 ===== */
@@ -1224,7 +1304,7 @@ async function handleAct(el){
   const S = el.dataset.s, G = el.dataset.g, I = el.dataset.i;
   switch(act){
     case "tab": tab = el.dataset.tab; render(); return;
-    case "ltab": ltab = el.dataset.k; render(); return;
+    case "ltab": ltab = el.dataset.k; sel.clear(); render(); return;
     case "note-open": return openNotes(el.dataset.t);
     case "supply-init":
       if(!guard(true, l.id)) return;
@@ -1249,7 +1329,7 @@ async function handleAct(el){
     case "fold": if(closed.size) closed.clear(); else l.sections.forEach(s => closed.add(s.id)); return render();
     case "csv": return l && exportCSV(l);
     case "tsv": return l && copyTSV(l);
-    case "edit": editMode = !editMode; return render();
+    case "edit": editMode = !editMode; sel.clear(); return render();
     case "clone": return cloneList(route.id);
     case "sec-fold": closed.has(S) ? closed.delete(S) : closed.add(S); return render();
     case "list-rename": {
@@ -1295,15 +1375,15 @@ async function handleAct(el){
     case "item-add": {
       const sup = findSec(l.sections, S).kind === "supply";
       const v = await openForm({ title: sup ? "준비물 추가" : "항목 추가", ok:"추가",
-        fields:[{ key:"text", label: sup ? "준비물 (한 줄에 하나: 이름 | 수량 | 담당)" : "항목 (여러 줄이면 한 줄에 하나씩)", type:"textarea",
-          placeholder: sup ? "인화용지 | 200장 | 김팀장\n멀티탭 | 3개\n명찰" : "", hint: sup ? "수량과 담당은 생략할 수 있어요." : "" }] });
+        fields: sup
+          ? [{ key:"rows", type:"grid", label:"준비물 (칸에 나눠 입력 · 수량·담당은 비워도 돼요)", rows:4,
+               hint:"Enter로 다음 칸 · 마지막 칸에서 Enter 하면 새 줄이 생겨요.\n엑셀·구글 시트에서 복사해 첫 칸에 붙여넣으면 한 번에 채워져요." }]
+          : [{ key:"text", label:"항목 (여러 줄이면 한 줄에 하나씩)", type:"textarea" }] });
       if(v){
-        const lines = v.text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-        const items = lines.map(t => {
-          if(!sup) return { id:uid("i"), text:t };
-          const [name, qty, owner] = t.split("|").map(x => x.trim());
-          return name ? { id:uid("i"), text:name, ...(qty ? { qty } : {}), ...(owner ? { owner } : {}) } : null;
-        }).filter(Boolean);
+        const items = sup
+          ? v.rows.filter(r => r.name).map(r => ({ id:uid("i"), text:r.name, ...(r.qty ? { qty:r.qty } : {}), ...(r.owner ? { owner:r.owner } : {}) }))
+          : v.text.split(/\r?\n/).map(x => x.trim()).filter(Boolean).map(t => ({ id:uid("i"), text:t }));
+        if(sup && v.rows.some(r => !r.name)) toast("이름이 빈 줄은 건너뛰었어요");
         if(items.length) mutate(l.id, secs => { findGrp(secs, S, G).items.push(...items); });
       }
       return;
@@ -1322,6 +1402,54 @@ async function handleAct(el){
       return;
     }
     case "item-up": case "item-down": return mutate(l.id, secs => { const its = findGrp(secs, S, G).items; return move(its, its.findIndex(x => x.id === I), act === "item-up" ? -1 : 1); });
+    case "item-sel": { if(sel.has(I)) sel.delete(I); else sel.add(I); return render(); }
+    case "grp-sel": {
+      const g = findGrp(l.sections, S, G), all = g.items.every(i => sel.has(i.id));
+      g.items.forEach(i => all ? sel.delete(i.id) : sel.add(i.id)); return render();
+    }
+    case "sel-clear": sel.clear(); return render();
+    case "sel-del": {
+      const ids = new Set(sel); if(!ids.size) return;
+      if(await confirmBox("선택 항목 삭제", `선택한 ${ids.size}개 항목을 삭제할까요?\n(되돌릴 수 없어요)`, `${ids.size}개 삭제`)){
+        sel.clear();
+        mutate(l.id, secs => { secs.forEach(s => s.groups.forEach(g => { g.items = g.items.filter(i => !ids.has(i.id)); })); });
+      }
+      return;
+    }
+    case "sel-move": {
+      const ids = new Set(sel); if(!ids.size) return;
+      const opts = [];
+      l.sections.forEach(s => { if((s.kind || "task") !== ltab) return; s.groups.forEach(g => opts.push({ value:s.id + "|" + g.id, label:`${s.title}${g.name ? " › " + g.name : ""}` })); });
+      if(!opts.length){ toast("옮길 소분류가 없어요"); return; }
+      const v = await openForm({ title:`${ids.size}개 항목 이동`, ok:"이동",
+        message:"체크 기록과 메모는 그대로 따라가요.",
+        fields:[{ key:"to", label:"옮길 곳 (구분 › 소분류)", type:"select", options:opts },
+                { key:"pos", label:"위치", type:"select", value:"end", options:[{ value:"end", label:"맨 뒤에 붙이기" }, { value:"start", label:"맨 앞에 넣기" }] }] });
+      if(v){
+        const [ts, tg] = v.to.split("|");
+        sel.clear();
+        mutate(l.id, secs => {
+          const dest = findGrp(secs, ts, tg); if(!dest) return false;
+          const moved = [];
+          secs.forEach(s => s.groups.forEach(g => { g.items = g.items.filter(i => { if(ids.has(i.id)){ moved.push(i); return false; } return true; }); }));
+          if(v.pos === "start") dest.items.unshift(...moved); else dest.items.push(...moved);
+        });
+        toast(`${ids.size}개 항목을 옮겼어요`);
+      }
+      return;
+    }
+    case "grp-move": {
+      const g0 = findGrp(l.sections, S, G), kind = findSec(l.sections, S).kind || "task";
+      const opts = l.sections.filter(s => (s.kind || "task") === kind && s.id !== S).map(s => ({ value:s.id, label:s.title }));
+      if(!opts.length){ toast("옮길 다른 구분이 없어요"); return; }
+      const v = await openForm({ title:`‘${g0.name || "이름 없는 그룹"}’ 소분류 이동`, ok:"이동", message:"항목과 체크 기록이 함께 옮겨져요.",
+        fields:[{ key:"to", label:"옮길 구분", type:"select", options:opts }] });
+      if(v) mutate(l.id, secs => {
+        const from = findSec(secs, S), to = findSec(secs, v.to); if(!to) return false;
+        const k = from.groups.findIndex(x => x.id === G); to.groups.push(...from.groups.splice(k, 1));
+      });
+      return;
+    }
     case "item-del": {
       const it = findGrp(l.sections, S, G).items.find(x => x.id === I);
       if(await confirmBox("항목 삭제", `‘${it.text}’을(를) 삭제할까요?`, "삭제")) mutate(l.id, secs => { const its = findGrp(secs, S, G).items; its.splice(its.findIndex(x => x.id === I), 1); });
@@ -1330,6 +1458,7 @@ async function handleAct(el){
   }
 }
 
+$("selBar").addEventListener("click", e => { const a = e.target.closest("[data-act]"); if(a) handleAct(a); });
 $("view").addEventListener("click", e => {
   const a = e.target.closest("[data-act]");
   if(a){ e.preventDefault(); handleAct(a); return; }
