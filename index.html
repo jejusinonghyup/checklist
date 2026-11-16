@@ -50,6 +50,16 @@
   .card .bar>i{background:var(--g2)}
   .c-meta{font-size:12.5px;color:var(--mute)}
   .c-act{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .srow{display:flex;gap:6px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+  .srow .si{flex:1;min-width:0}
+  .srow .si b{font-size:14px;margin-right:5px}
+  .srow .si .badge{background:var(--bg);margin-right:4px}
+  .srow .se{font-size:12px;color:var(--mute);overflow-wrap:anywhere}
+  #sList{max-height:42vh;overflow:auto;margin-bottom:10px}
+  .sadd{border-top:2px solid var(--line);padding-top:12px}
+  .sadd input[type=text]{width:100%;margin-bottom:7px;font:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9d4ce;border-radius:9px;background:#fff;color:var(--ink)}
+  .sadd input[type=checkbox]{width:18px;height:18px}
+  .sadd label.chk{display:flex;gap:7px;align-items:center;font-size:13px;margin:2px 0 10px}
   .empty{padding:28px 14px;color:var(--mute);font-size:14px;text-align:center}
   .tools{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
   section.sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
@@ -121,7 +131,7 @@
 <header>
   <div class="top">
     <button class="back" id="backBtn" aria-label="목록으로">←</button>
-    <h1 id="hTitle">행사 체크리스트<small id="hSub">제주시농협 디지털소통팀</small></h1>
+    <h1 id="hTitle">행사 체크리스트<small id="hSub">제주시농협</small></h1>
     <div class="auth" id="auth"></div>
   </div>
   <div class="total" id="total">
@@ -146,6 +156,22 @@
       <button type="button" class="btn pri" id="dlgOk">확인</button>
     </div>
   </form>
+</dialog>
+<dialog id="sdlg">
+  <div style="padding:18px">
+    <h3>직원 관리</h3>
+    <p class="dlg-msg" style="margin:0 0 8px">여기에 등록된 Google 계정만 체크·편집할 수 있어요.</p>
+    <div id="sList"></div>
+    <div class="sadd">
+      <input type="text" id="sEmail" placeholder="직원 Google 이메일 (예: name@gmail.com)" autocomplete="off" inputmode="email">
+      <input type="text" id="sName" placeholder="이름 (예: 홍길동)" autocomplete="off">
+      <label class="chk"><input type="checkbox" id="sAdmin"> 관리자 권한 (영구 삭제·직원 관리)</label>
+      <div class="dlg-actions">
+        <button type="button" class="btn line" id="sClose">닫기</button>
+        <button type="button" class="btn pri" id="sAdd">직원 추가</button>
+      </div>
+    </div>
+  </div>
 </dialog>
 <dialog id="ndlg">
   <div style="padding:18px">
@@ -173,12 +199,10 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 /* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
 const firebaseConfig = {
-  apiKey: "AIzaSyCwuWD8Zks7PDppvkU1vlCXQlvDFA9_PJs",
-  authDomain: "checklist-f6795.firebaseapp.com",
-  projectId: "checklist-f6795",
-  storageBucket: "checklist-f6795.firebasestorage.app",
-  messagingSenderId: "901255037556",
-  appId: "1:901255037556:web:55953089f92bcb788ec721"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
 };
 const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
 const STAFF_COL = "checklistStaff";  // 편집 허용 이메일 (문서 ID = 소문자 이메일, admin:true면 영구 삭제 가능)
@@ -635,13 +659,14 @@ function renderSetup(){
 
 function renderHome(){
   $("hTitle").firstChild.textContent = "행사 체크리스트";
-  $("hSub").textContent = "제주시농협 디지털소통팀";
+  $("hSub").textContent = "제주시농협";
   const all = [...lists.values()];
   const by = s => all.filter(l => l.status === s).sort((a, b) => timeOf(b) - timeOf(a));
   const counts = { active:by("active").length, archived:by("archived").length, trash:by("trash").length };
   if(tab === "trash" && !canEdit) tab = "active";
   const tabBtn = (k, label) => `<button class="tab ${tab===k?"on":""}" data-act="tab" data-tab="${k}">${label} ${counts[k]}</button>`;
   let html = `<div class="tabs">${tabBtn("active","진행 중")}${tabBtn("archived","보관함")}${canEdit?tabBtn("trash","휴지통"):""}<span class="sp"></span>
+    ${isAdmin ? `<button class="btn line" data-act="staff">👥 직원 관리</button>` : ""}
     ${canEdit ? `<button class="btn pri" data-act="new">＋ 새 체크리스트</button>` : (CONFIGURED && !user ? `<span style="font-size:12.5px;color:var(--mute)">만들려면 로그인하세요</span>` : "")}</div>`;
   if(tab === "trash" && canEdit){
     html += `<div class="notice">휴지통의 체크리스트는 복원할 수 있어요. 영구 삭제는 관리자만 가능하며, 자동으로 비워지지는 않습니다.
@@ -824,6 +849,59 @@ $("nList").addEventListener("click", async e => {
   }
 });
 
+/* ===== 직원 관리 (관리자 전용) ===== */
+let staffUnsub = null, staffRows = [];
+const myEmail = () => ((user && user.email) || "").toLowerCase();
+function renderStaff(msg){
+  const me = myEmail();
+  $("sList").innerHTML = msg ? `<div class="empty">${esc(msg)}</div>` : (staffRows.length ? staffRows.map(r => `<div class="srow">
+      <div class="si"><b>${esc(r.name || "(이름 없음)")}</b>${r.admin ? `<span class="badge">관리자</span>` : ""}${r.email === me ? `<span class="badge">나</span>` : ""}<div class="se">${esc(r.email)}</div></div>
+      ${r.email === me ? "" : `<button type="button" class="btn line sm" data-sact="toggle" data-e="${esc(r.email)}">${r.admin ? "관리자 해제" : "관리자 지정"}</button><button type="button" class="btn dl sm" data-sact="del" data-e="${esc(r.email)}">제거</button>`}
+    </div>`).join("") : `<div class="empty">등록된 직원이 없어요.</div>`);
+}
+function openStaff(){
+  if(!isAdmin){ toast("관리자만 열 수 있어요"); return; }
+  staffRows = []; renderStaff("불러오는 중…");
+  $("sEmail").value = ""; $("sName").value = ""; $("sAdmin").checked = false;
+  $("sdlg").showModal();
+  try {
+    staffUnsub = onSnapshot(collection(db, STAFF_COL), snap => {
+      const rows = []; snap.forEach(d => rows.push({ ...d.data(), email:d.id }));
+      rows.sort((a, b) => (b.admin === true) - (a.admin === true) || a.email.localeCompare(b.email));
+      staffRows = rows; renderStaff();
+    }, e => renderStaff("목록을 불러오지 못했어요: " + (e.code || e.message)));
+  } catch(e){ renderStaff("목록을 불러오지 못했어요: " + (e.code || e.message)); }
+}
+async function addStaff(){
+  const email = $("sEmail").value.trim().toLowerCase(), name = $("sName").value.trim();
+  let adm = $("sAdmin").checked;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast("이메일 형식을 확인해 주세요"); $("sEmail").focus(); return; }
+  if(email === myEmail()) adm = true;   // 본인은 관리자 유지 (스스로 잠기는 것 방지)
+  const existed = staffRows.some(r => r.email === email);
+  try {
+    await setDoc(doc(db, STAFF_COL, email), { name, admin:adm, addedBy:myEmail(), addedAt:serverTimestamp() });
+    $("sEmail").value = ""; $("sName").value = ""; $("sAdmin").checked = false;
+    toast(existed ? "정보를 수정했어요" : "직원을 추가했어요");
+  } catch(e){ toast("저장하지 못했어요: " + (e.code || e.message)); }
+}
+$("sAdd").onclick = addStaff;
+$("sEmail").onkeydown = $("sName").onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); addStaff(); } };
+$("sClose").onclick = () => { if($("sdlg").open) $("sdlg").close(); };
+$("sdlg").onclose = () => { if(staffUnsub){ staffUnsub(); staffUnsub = null; } };
+$("sList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-sact]"); if(!b) return;
+  const email = b.dataset.e, row = staffRows.find(r => r.email === email); if(!row || email === myEmail()) return;
+  try {
+    if(b.dataset.sact === "toggle"){
+      await updateDoc(doc(db, STAFF_COL, email), { admin: !(row.admin === true) });
+      toast(row.admin ? "관리자 권한을 해제했어요" : "관리자로 지정했어요");
+    } else if(await confirmBox("직원 제거", `${row.name || email} 님을 직원에서 제거할까요? 제거하면 더 이상 체크·편집할 수 없어요.`, "제거")){
+      await deleteDoc(doc(db, STAFF_COL, email));
+      toast("제거했어요");
+    }
+  } catch(err){ toast("처리하지 못했어요: " + (err.code || err.message)); }
+});
+
 /* ===== 클릭 처리 ===== */
 const findSec = (secs, id) => secs.find(s => s.id === id);
 const findGrp = (secs, sid, gid) => findSec(secs, sid)?.groups.find(g => g.id === gid);
@@ -841,6 +919,7 @@ async function handleAct(el){
       editMode = true;
       return mutate(l.id, secs => { secs.push({ id:uid("s"), title:"준비물", kind:"supply", date:"", note:"", groups:[{ id:uid("g"), name:"", items:[] }] }); });
     case "home": location.hash = "#/"; return;
+    case "staff": return openStaff();
     case "new": return createList();
     case "archive": return archiveList(id);
     case "unarchive": return unarchiveList(id);
