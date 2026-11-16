@@ -61,6 +61,17 @@
   .sadd input[type=text]{width:100%;margin-bottom:7px;font:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9d4ce;border-radius:9px;background:#fff;color:var(--ink)}
   .sadd input[type=checkbox]{width:18px;height:18px}
   .sadd label.chk{display:flex;gap:7px;align-items:center;font-size:13px;margin:2px 0 10px}
+  .r-tools{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:#fff}
+  .seg-b{border:0;background:none;padding:6px 13px;font:inherit;font-size:13px;color:var(--mute);cursor:pointer}
+  .seg-b.on{background:var(--g);color:#fff;font-weight:700}
+  .rr{display:flex;gap:8px;align-items:flex-start;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .rr:last-child{border-bottom:0}
+  .rr-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .rr-task{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+  .rr-who{align-self:flex-start;background:var(--bg);color:var(--g);border-radius:99px;padding:1px 10px;font-size:12px;font-weight:700}
+  .rr-when,.rr-note{font-size:12.5px;color:var(--mute);overflow-wrap:anywhere}
+  .rr .ctl{display:flex;gap:4px}
   #tpList{max-height:52vh;overflow:auto;margin-bottom:10px}
   .btn.pri.sm{background:var(--g);color:#fff;border:0}
   .empty{padding:28px 14px;color:var(--mute);font-size:14px;text-align:center}
@@ -214,12 +225,10 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 /* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
 const firebaseConfig = {
-  apiKey: "AIzaSyCwuWD8Zks7PDppvkU1vlCXQlvDFA9_PJs",
-  authDomain: "checklist-f6795.firebaseapp.com",
-  projectId: "checklist-f6795",
-  storageBucket: "checklist-f6795.firebasestorage.app",
-  messagingSenderId: "901255037556",
-  appId: "1:901255037556:web:55953089f92bcb788ec721"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
 };
 const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
 const TPL_COL = "checklistTemplates"; // 저장된 템플릿 (구조만, 체크 없음)
@@ -351,8 +360,10 @@ function buildSections(tpl){
     groups:s.groups.map(g => ({ id:uid("g"), name:g.name||"", items:g.items.map(t => ({ id:uid("i"), text:t })) })) }));
 }
 function parseOutline(text){
-  const secs = []; let sec = null, grp = null;
+  const secs = [], roster = []; let sec = null, grp = null, rosterMode = false;
   const newSec = t => {
+    if(/^\[(?:분장|roster)\]/.test(t)){ rosterMode = true; sec = null; grp = null; return; }
+    rosterMode = false;
     let kind = "task"; const m = t.match(/^\[(?:준비물|supply)\]\s*/);
     if(m){ kind = "supply"; t = t.slice(m[0].length); }
     sec = { id:uid("s"), title:t, kind, date:"", note:"", groups:[] }; secs.push(sec); grp = null;
@@ -362,10 +373,15 @@ function parseOutline(text){
     const line = raw.trim(); if(!line) continue;
     if(/^@일정(\s|$)/.test(line)){ if(sec) sec.date = line.replace(/^@일정\s*/, ""); continue; }
     if(/^@안내(\s|$)/.test(line)){ if(sec) sec.note = line.replace(/^@안내\s*/, ""); continue; }
-    if(line.startsWith("## ")) newGrp(line.slice(3).trim());
+    if(line.startsWith("## ")){ if(!rosterMode) newGrp(line.slice(3).trim()); }
     else if(line.startsWith("# ")) newSec(line.slice(2).trim());
     else {
       const t = line.replace(/^(?:[-*•□☐]|\[[ xX]?\])\s*/, "").trim(); if(!t) continue;
+      if(rosterMode){   // # [분장] 아래 줄: 업무 | 담당자 | 시간·장소 | 비고
+        const [task, who, when, note] = t.split("|").map(x => x.trim());
+        if(task) roster.push({ task, who:who || "", when:when || "", note:note || "" });
+        continue;
+      }
       if(!sec) newSec("체크리스트");
       if(!grp) newGrp("");
       if(sec.kind === "supply"){
@@ -375,6 +391,7 @@ function parseOutline(text){
       } else grp.items.push({ id:uid("i"), text:t });
     }
   }
+  secs.roster = roster;
   return secs;
 }
 function stats(l, kind){
@@ -606,14 +623,14 @@ async function createList(pre = {}){
   });
   if(!v) return;
   const title = v.title.trim(); if(!title){ toast("이름을 입력해 주세요"); return; }
-  let sections = [];
+  let sections = [], roster = [];
   if(v.src === "ax") sections = buildSections(TEMPLATE_AX);
-  else if(v.src.startsWith("tpl:")){ const t = templates.get(v.src.slice(4)); if(t) sections = reid(t.sections); }
-  else if(v.src === "text") sections = parseOutline(v.text);
-  else if(v.src.startsWith("copy:")){ const o = lists.get(v.src.slice(5)); if(o) sections = clone(o.sections); }
+  else if(v.src.startsWith("tpl:")){ const t = templates.get(v.src.slice(4)); if(t){ sections = reid(t.sections); roster = t.roster || []; } }
+  else if(v.src === "text"){ sections = parseOutline(v.text); roster = sections.roster || []; }
+  else if(v.src.startsWith("copy:")){ const o = lists.get(v.src.slice(5)); if(o){ sections = clone(o.sections); roster = rosterArr(o); } }
   if(!sections.length) sections = [{ id:uid("s"), title:"체크리스트", date:"", note:"", groups:[{ id:uid("g"), name:"", items:[] }] }];
   const r = doc(collection(db, COL));
-  setDoc(r, { title, dateText:v.dateText.trim(), status:"active", sections, checks:{},
+  setDoc(r, { title, dateText:v.dateText.trim(), status:"active", sections, checks:{}, ...(roster.length ? { roster:rosterMap(roster) } : {}),
     createdBy:user.email.toLowerCase(), createdByName:myName(),
     createdAt:serverTimestamp(), updatedAt:serverTimestamp() })
     .catch(fail);
@@ -622,12 +639,12 @@ async function createList(pre = {}){
 }
 function cloneList(id){
   const l = lists.get(id); if(!l || !guard()) return;
-  openForm({ title:"복제해서 새 체크리스트 만들기", ok:"복제", message:"항목 구성은 그대로 가져오고 체크 상태는 비웁니다.",
+  openForm({ title:"복제해서 새 체크리스트 만들기", ok:"복제", message:"항목 구성과 업무 분장은 그대로 가져오고 체크 상태는 비웁니다.",
     fields:[{ key:"title", label:"새 이름", value:l.title + " (복사본)", required:true }, { key:"dateText", label:"행사 일정 (선택)", value:"" }] })
   .then(v => {
     if(!v || !v.title.trim()) return;
     const r = doc(collection(db, COL));
-    setDoc(r, { title:v.title.trim(), dateText:v.dateText.trim(), status:"active", sections:clone(l.sections), checks:{},
+    setDoc(r, { title:v.title.trim(), dateText:v.dateText.trim(), status:"active", sections:clone(l.sections), checks:{}, ...(rosterArr(l).length ? { roster:rosterMap(rosterArr(l)) } : {}),
       createdBy:user.email.toLowerCase(), createdByName:myName(),
       createdAt:serverTimestamp(), updatedAt:serverTimestamp() }).catch(fail);
     location.hash = "#/c/" + r.id;
@@ -646,6 +663,7 @@ function rowsOf(l){
     out.push([s.kind === "supply" ? "준비물" : "할 일", s.title + (s.date ? ` (${s.date})` : ""), g.name, i.text, i.qty || "", i.owner || "",
       c.checked ? "완료" : "", c.checked ? (c.byName || c.by || "") : "", c.checked ? fmt(c.at) : "", (nm[i.id] || []).join(" / ")]);
   })));
+  rosterArr(l).forEach(r => out.push(["업무 분장", r.when || "", "", r.task, "", r.who || "", "", "", "", r.note || ""]));
   (nm["_p"] || []).forEach(t => out.push(["공유 메모", "", "", t, "", "", "", "", "", ""]));
   return out;
 }
@@ -748,19 +766,21 @@ function renderList(){
       ${pn.slice(-2).reverse().map(n => `<div class="pm-n"><b>${esc(n.byName || n.by || "")}</b><span>${esc(fmt(n.at))}</span><div>${esc(n.text)}</div></div>`).join("")}</div>`;
   }
   html += `<div class="tabs"><button class="tab ${ltab==="task"?"on":""}" data-act="ltab" data-k="task">할 일 ${sT.d}/${sT.t}</button>
-    <button class="tab ${ltab==="supply"?"on":""}" data-act="ltab" data-k="supply">준비물 ${sS.d}/${sS.t}</button></div>`;
+    <button class="tab ${ltab==="supply"?"on":""}" data-act="ltab" data-k="supply">준비물 ${sS.d}/${sS.t}</button>
+    <button class="tab ${ltab==="roster"?"on":""}" data-act="ltab" data-k="roster">업무 분장 ${Object.keys(l.roster || {}).length}</button></div>`;
   html += `<div class="tools">
-    <button class="btn line" data-act="flt">${onlyOpen?"전체 보기":"미완료만 보기"}</button>
-    <button class="btn line" data-act="fold">${closed.size ? "모두 펼치기" : "모두 접기"}</button>
+    ${ltab !== "roster" ? `<button class="btn line" data-act="flt">${onlyOpen?"전체 보기":"미완료만 보기"}</button>
+    <button class="btn line" data-act="fold">${closed.size ? "모두 펼치기" : "모두 접기"}</button>` : ""}
     <button class="btn line" data-act="csv">CSV 내려받기</button>
     <button class="btn line" data-act="tsv">구글 시트용 복사</button>
-    ${canEdit && l.status==="active" ? `<button class="btn ${editing?"pri":"line"}" data-act="edit">${editing?"편집 끝내기":"✎ 편집"}</button>` : ""}
+    ${canEdit && l.status==="active" && ltab !== "roster" ? `<button class="btn ${editing?"pri":"line"}" data-act="edit">${editing?"편집 끝내기":"✎ 편집"}</button>` : ""}
     ${canEdit && l.status!=="trash" ? `<button class="btn line" data-act="clone">복제</button><button class="btn line" data-act="save-tpl">템플릿으로 저장</button>` : ""}
     ${canEdit && l.status==="active" ? `<button class="btn line" data-act="archive" data-id="${l.id}">보관</button>` : ""}
     ${canEdit && l.status!=="trash" ? `<button class="btn dl" data-act="trash" data-id="${l.id}">삭제</button>` : ""}
   </div>`;
   if(editing) html += `<div class="tools"><button class="btn line sm" data-act="list-rename">이름·일정 수정</button></div>`;
 
+  if(ltab === "roster"){ $("view").innerHTML = html + renderRoster(l, canCheck); return; }
   const ib = (act, label, attrs, cls = "") => `<button class="ib ${cls}" data-act="${act}" ${attrs} title="${esc(label)}">${label}</button>`;
   let shownSecs = 0;
   l.sections.forEach((s, si) => {
@@ -874,15 +894,64 @@ $("nList").addEventListener("click", async e => {
   }
 });
 
+/* ===== 업무 분장 (담당자별 업무표) ===== */
+const rosterArr = l => Object.entries(l.roster || {}).map(([id, r]) => ({ id, ...r })).sort((a, b) => (a.ord || 0) - (b.ord || 0));
+const cleanRoster = arr => (arr || []).map(r => ({ task:r.task || "", who:r.who || "", when:r.when || "", note:r.note || "" }));
+const rosterMap = arr => { const o = {}; cleanRoster(arr).forEach((r, i) => { o[uid("r")] = { ...r, ord:Date.now() + i }; }); return o; };
+let rosterView = "who";   // "who": 담당자별 묶음 / "order": 입력 순서
+function renderRoster(l, canCheck){
+  const rows = rosterArr(l);
+  const head = `<div class="r-tools"><div class="seg"><button type="button" class="seg-b ${rosterView==="who"?"on":""}" data-act="rview" data-k="who">담당자별</button><button type="button" class="seg-b ${rosterView==="order"?"on":""}" data-act="rview" data-k="order">입력 순서</button></div>${canCheck ? `<button type="button" class="btn pri sm" data-act="r-add">＋ 업무 추가</button>` : ""}</div>`;
+  if(!rows.length) return head + `<div class="empty">아직 업무 분장이 없어요.${canCheck ? "<br>‘＋ 업무 추가’로 담당자와 맡은 일을 적어 보세요." : ""}</div>`;
+  const ctl = r => canCheck ? `<span class="ctl"><button type="button" class="ib" data-act="r-edit" data-r="${r.id}" title="수정">✎</button><button type="button" class="ib del" data-act="r-del" data-r="${r.id}" title="삭제">✕</button></span>` : "";
+  const card = (r, showWho) => `<div class="rr"><div class="rr-main">${showWho ? `<span class="rr-who">${esc(r.who || "미정")}</span>` : ""}<span class="rr-task">${esc(r.task)}</span>${r.when ? `<span class="rr-when">🕘 ${esc(r.when)}</span>` : ""}${r.note ? `<span class="rr-note">${esc(r.note)}</span>` : ""}</div>${ctl(r)}</div>`;
+  if(rosterView === "order") return head + `<section class="sec"><div class="sec-b">${rows.map(r => card(r, true)).join("")}</div></section>`;
+  const order = [], by = new Map();
+  rows.forEach(r => { const k = (r.who || "").trim() || "미정"; if(!by.has(k)){ by.set(k, []); order.push(k); } by.get(k).push(r); });
+  order.sort((a, b) => (a === "미정") - (b === "미정"));
+  return head + order.map(k => `<section class="sec"><div class="sec-h" style="cursor:default"><h2>${esc(k)}</h2><span class="cnt">${by.get(k).length}건</span></div><div class="sec-b">${by.get(k).map(r => card(r, false)).join("")}</div></section>`).join("");
+}
+async function editRoster(l, r){
+  if(!guard(true, l.id)) return;
+  const names = [...new Set(staffRows.map(x => String(x.name || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const cur = r ? (r.who || "") : "", inList = !cur || names.includes(cur);
+  const opts = [{ value:"", label:"(미정)" }, ...names.map(n => ({ value:n, label:n })), { value:"__custom", label:"직접 입력…" }];
+  const v = await openForm({ title:r ? "업무 수정" : "업무 추가", ok:"저장",
+    fields:[
+      { key:"pick", label:"담당자", type:"select", options:opts, value:inList ? cur : "__custom" },
+      { key:"custom", label:"직접 입력 (여러 명이면 쉼표로)", value:inList ? "" : cur, placeholder:"예) 홍길동, 협력사 직원" },
+      { key:"task", label:"맡은 일", required:true, value:r ? r.task : "", placeholder:"예) 5.0초 게임 진행" },
+      { key:"when", label:"시간·장소 (선택)", value:r ? (r.when || "") : "", placeholder:"예) 11/18 10:00~12:00 · 1층 로비" },
+      { key:"note", label:"비고 (선택)", value:r ? (r.note || "") : "", hint:"전화번호 같은 개인정보는 적지 마세요. 로그인 없이도 볼 수 있는 화면이에요." }
+    ],
+    after: body => {
+      const sel = body.querySelector("#f0"), cu = body.querySelector('[data-key="custom"]');
+      const sync = () => { cu.style.display = sel.value === "__custom" ? "" : "none"; };
+      sel.onchange = sync; sync();
+    }
+  });
+  if(v === null) return;
+  const task = v.task.trim(); if(!task){ toast("맡은 일을 입력해 주세요"); return; }
+  const whoName = v.pick === "__custom" ? v.custom.trim() : v.pick;
+  const id = r ? r.id : uid("r");
+  const row = { who:whoName, task, when:v.when.trim(), note:v.note.trim(), ord:r ? (r.ord || 0) : Date.now() };
+  if(guard(true, l.id)) updateDoc(ref(l.id), { ["roster." + id]: row, updatedAt:serverTimestamp() }).catch(fail);
+}
+async function delRoster(l, r){
+  if(!guard(true, l.id) || !r) return;
+  if(await confirmBox("업무 삭제", `‘${r.task}’ 업무를 삭제할까요?`, "삭제"))
+    updateDoc(ref(l.id), { ["roster." + r.id]: deleteField(), updatedAt:serverTimestamp() }).catch(fail);
+}
+
 /* ===== 템플릿 (저장·편집·CSV) ===== */
 let templates = new Map(), tplUnsub = null, tplErr = "";
 const OUTLINE_PH = "# 사전 준비\n@일정 11/16 ~ 11/17\n## 장비\n- 사이니지 점검\n# [준비물] 휴대 물품\n## 소모품\n- 인화용지 | 200장 | 김팀장";
-const OUTLINE_HINT = "# 구분   ## 소분류   - 항목\n@일정 …   @안내 …  (구분 바로 아래 줄, 선택)\n# [준비물] 구분 → 준비물 탭, 항목은 “이름 | 수량 | 담당”";
+const OUTLINE_HINT = "# 구분   ## 소분류   - 항목\n@일정 …   @안내 …  (구분 바로 아래 줄, 선택)\n# [준비물] 구분 → 준비물 탭, 항목은 “이름 | 수량 | 담당”\n# [분장] 업무 분장 → 업무 분장 탭, 줄은 “업무 | 담당자 | 시간·장소 | 비고”";
 const reid = secs => secs.map(s => ({ id:uid("s"), title:s.title, kind:s.kind || "task", date:s.date || "", note:s.note || "",
   groups:(s.groups || []).map(g => ({ id:uid("g"), name:g.name || "",
     items:(g.items || []).map(i => ({ id:uid("i"), text:i.text, ...(i.qty ? { qty:i.qty } : {}), ...(i.owner ? { owner:i.owner } : {}) })) })) }));
 const countSecs = secs => ({ s:secs.length, i:secs.reduce((n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0), 0) });
-function toOutline(secs){
+function toOutline(secs, roster = []){
   const out = [];
   secs.forEach(s => {
     out.push("# " + (s.kind === "supply" ? "[준비물] " : "") + s.title);
@@ -893,6 +962,10 @@ function toOutline(secs){
       g.items.forEach(i => out.push("- " + (s.kind === "supply" ? [i.text, i.qty || "", i.owner || ""].join(" | ").replace(/(\s*\|\s*)+$/, "") : i.text)));
     });
   });
+  if(roster && roster.length){
+    out.push("# [분장] 업무 분장");
+    cleanRoster(roster).forEach(r => out.push("- " + [r.task, r.who, r.when, r.note].join(" | ").replace(/(\s*\|\s*)+$/, "")));
+  }
   return out.join("\n");
 }
 function parseCSV(text){
@@ -916,12 +989,13 @@ function csvToSections(text){
   const rows = parseCSV(text); if(!rows.length) return [];
   const head = rows[0].map(h => String(h).trim());
   const ix = n => head.indexOf(n), iI = ix("항목"); if(iI < 0) return null;
-  const iT = ix("유형"), iS = ix("구분"), iG = ix("소분류"), iQ = ix("수량"), iO = ix("담당"), iD = ix("일정"), iN = ix("안내");
+  const iT = ix("유형"), iS = ix("구분"), iG = ix("소분류"), iQ = ix("수량"), iO = ix("담당"), iD = ix("일정"), iN = ix("안내"), iM = ix("메모");
   const get = (r, i) => i < 0 ? "" : String(r[i] ?? "").trim();
-  const secs = [], byKey = new Map();
+  const secs = [], byKey = new Map(), roster = [];
   for(const r of rows.slice(1)){
     const typ = get(r, iT), txt = get(r, iI);
     if(!txt || typ === "공유 메모") continue;
+    if(/분장/.test(typ)){ roster.push({ task:txt, who:get(r, iO), when:get(r, iS), note:get(r, iN) || get(r, iM) }); continue; }
     const kind = /준비물|supply/i.test(typ) ? "supply" : "task";
     let title = get(r, iS) || (kind === "supply" ? "준비물" : "체크리스트"), date = get(r, iD);
     const m = title.match(/\s*\(([\d.\/~\-\s]+)\)\s*$/);          // 내보낸 CSV의 “구분 (일정)” 모양
@@ -937,6 +1011,7 @@ function csvToSections(text){
     const qty = get(r, iQ), owner = get(r, iO);
     grp.items.push({ id:uid("i"), text:txt, ...(kind === "supply" && qty ? { qty } : {}), ...(kind === "supply" && owner ? { owner } : {}) });
   }
+  secs.roster = roster;
   return secs;
 }
 function tplRows(t){
@@ -947,6 +1022,7 @@ function tplRows(t){
       first = false;
     }));
   });
+  cleanRoster(t.roster).forEach(r => out.push(["업무 분장", r.when, "", r.task, "", r.who, "", r.note]));
   return out;
 }
 const builtinTpl = () => ({ id:"ax", name:"2026 AX 농업포럼 체험 부스", desc:"기본 제공 템플릿 (수정·삭제할 수 없어요. 복사해서 내 템플릿으로 고쳐 쓰세요)", builtin:true, sections:buildSections(TEMPLATE_AX) });
@@ -967,7 +1043,7 @@ function renderTpl(){
     const meta = t.builtin ? "" : `<div class="se">${esc(t.updatedByName || t.createdByName || "")}${(t.updatedAt || t.createdAt) ? " · " + fmt(t.updatedAt || t.createdAt) : ""}</div>`;
     const mine = !t.builtin && (isAdmin || t.createdBy === me);
     return `<div class="srow"><div class="si"><b>${esc(t.name)}</b>${t.builtin ? `<span class="badge">기본 제공</span>` : ""}
-      ${t.desc ? `<div class="se">${esc(t.desc)}</div>` : ""}<div class="se">구분 ${c.s}개 · 항목 ${c.i}개</div>${meta}</div>
+      ${t.desc ? `<div class="se">${esc(t.desc)}</div>` : ""}<div class="se">구분 ${c.s}개 · 항목 ${c.i}개${(t.roster || []).length ? ` · 업무 분장 ${t.roster.length}건` : ""}</div>${meta}</div>
       <div class="sa"><button type="button" class="btn pri sm" data-tact="use" data-id="${esc(t.id)}">사용</button>
         ${t.builtin ? "" : `<button type="button" class="btn line sm" data-tact="edit" data-id="${esc(t.id)}">편집</button>`}
         <button type="button" class="btn line sm" data-tact="csv" data-id="${esc(t.id)}">CSV</button>
@@ -985,8 +1061,8 @@ function openTpl(){
   renderTpl(); $("tpdlg").showModal();
 }
 const getTpl = id => id === "ax" ? builtinTpl() : templates.get(id);
-async function putTpl(name, desc, sections, id){
-  const base = { name, desc, sections, updatedBy:myEmail(), updatedByName:myName(), updatedAt:serverTimestamp() };
+async function putTpl(name, desc, sections, id, roster = []){
+  const base = { name, desc, sections, roster:cleanRoster(roster), updatedBy:myEmail(), updatedByName:myName(), updatedAt:serverTimestamp() };
   if(id) return updateDoc(doc(db, TPL_COL, id), base);
   return setDoc(doc(collection(db, TPL_COL)), { ...base, createdBy:myEmail(), createdByName:myName(), createdAt:serverTimestamp() });
 }
@@ -995,15 +1071,15 @@ async function editTpl(t){
     fields:[
       { key:"name", label:"템플릿 이름", value:t ? t.name : "", required:true, placeholder:"예) 마라톤 홍보부스" },
       { key:"desc", label:"설명 (선택)", value:t ? (t.desc || "") : "", placeholder:"어떤 행사에 쓰는지" },
-      { key:"text", label:"항목", type:"textarea", value:t ? toOutline(t.sections) : "", placeholder:OUTLINE_PH, hint:OUTLINE_HINT }
+      { key:"text", label:"항목", type:"textarea", value:t ? toOutline(t.sections, t.roster) : "", placeholder:OUTLINE_PH, hint:OUTLINE_HINT }
     ],
     after: body => { const ta = body.querySelector("textarea"); if(ta) ta.style.minHeight = "34vh"; }
   });
   if(v === null) return;
   const name = v.name.trim(); if(!name){ toast("이름을 입력해 주세요"); return; }
-  const sections = parseOutline(v.text);
-  if(!countSecs(sections).i){ toast("항목이 하나도 없어요. 저장하지 않았어요"); return; }
-  try { await putTpl(name, v.desc.trim(), sections, t && t.id); toast(t ? "템플릿을 수정했어요" : "템플릿을 만들었어요"); }
+  const sections = parseOutline(v.text), roster = sections.roster || [];
+  if(!countSecs(sections).i && !roster.length){ toast("항목이 하나도 없어요. 저장하지 않았어요"); return; }
+  try { await putTpl(name, v.desc.trim(), sections, t && t.id, roster); toast(t ? "템플릿을 수정했어요" : "템플릿을 만들었어요"); }
   catch(e){ toast("저장하지 못했어요: " + (e.code || e.message)); }
 }
 async function importTpl(pre = {}, err = ""){
@@ -1032,10 +1108,10 @@ async function importTpl(pre = {}, err = ""){
   if(!name) return importTpl(v, "템플릿 이름을 입력해 주세요.");
   const secs = csvToSections(v.text);
   if(secs === null) return importTpl(v, "‘항목’이라는 제목 열을 찾지 못했어요. 첫 줄에 유형,구분,소분류,항목 … 같은 제목 줄이 있어야 해요.");
-  if(!countSecs(secs).i) return importTpl(v, "가져올 항목이 없어요. CSV 내용을 확인해 주세요.");
+  if(!countSecs(secs).i && !(secs.roster || []).length) return importTpl(v, "가져올 항목이 없어요. CSV 내용을 확인해 주세요.");
   try {
-    await putTpl(name, v.desc.trim(), secs);
-    const c = countSecs(secs); toast(`템플릿을 만들었어요 (구분 ${c.s}개 · 항목 ${c.i}개)`);
+    await putTpl(name, v.desc.trim(), secs, undefined, secs.roster || []);
+    const c = countSecs(secs); toast(`템플릿을 만들었어요 (구분 ${c.s}개 · 항목 ${c.i}개${(secs.roster || []).length ? ` · 업무 분장 ${secs.roster.length}건` : ""})`);
   } catch(e){ toast("저장하지 못했어요: " + (e.code || e.message)); }
 }
 async function saveAsTpl(l){
@@ -1044,7 +1120,7 @@ async function saveAsTpl(l){
     fields:[{ key:"name", label:"템플릿 이름", value:l.title, required:true }, { key:"desc", label:"설명 (선택)", value:"" }] });
   if(v === null) return;
   const name = v.name.trim(); if(!name){ toast("이름을 입력해 주세요"); return; }
-  try { await putTpl(name, v.desc.trim(), reid(l.sections)); toast("템플릿으로 저장했어요. 홈의 ‘📋 템플릿’에서 볼 수 있어요"); }
+  try { await putTpl(name, v.desc.trim(), reid(l.sections), undefined, rosterArr(l)); toast("템플릿으로 저장했어요. 홈의 ‘📋 템플릿’에서 볼 수 있어요"); }
   catch(e){ toast("저장하지 못했어요: " + (e.code || e.message)); }
 }
 $("tpNew").onclick = () => editTpl(null);
@@ -1059,7 +1135,7 @@ $("tpList").addEventListener("click", async e => {
       case "edit": return editTpl(t);
       case "csv": saveCSV("템플릿_" + t.name, tplRows(t)); return;
       case "dup": {
-        await putTpl(t.builtin ? t.name : t.name + " (복사)", t.builtin ? "" : (t.desc || ""), reid(t.sections));
+        await putTpl(t.builtin ? t.name : t.name + " (복사)", t.builtin ? "" : (t.desc || ""), reid(t.sections), undefined, t.roster || []);
         toast(t.builtin ? "내 템플릿으로 복사했어요. 이제 편집할 수 있어요" : "복제했어요"); return;
       }
       case "del":
@@ -1072,7 +1148,7 @@ $("tpList").addEventListener("click", async e => {
 });
 
 /* ===== 직원 관리 (관리자 전용) ===== */
-let staffUnsub = null, staffRows = [];
+let staffUnsub = null, staffRows = [], staffErr = "";
 const myEmail = () => ((user && user.email) || "").toLowerCase();
 function renderStaff(msg){
   const me = myEmail();
@@ -1081,20 +1157,23 @@ function renderStaff(msg){
       <div class="sa"><button type="button" class="btn line sm" data-sact="rename" data-e="${esc(r.email)}">이름 수정</button>${r.email === me ? "" : `<button type="button" class="btn line sm" data-sact="toggle" data-e="${esc(r.email)}">${r.admin ? "관리자 해제" : "관리자 지정"}</button><button type="button" class="btn dl sm" data-sact="del" data-e="${esc(r.email)}">제거</button>`}</div>
     </div>`).join("") : `<div class="empty">등록된 직원이 없어요.</div>`);
 }
+function subscribeStaffList(){
+  if(!canEdit){ if(staffUnsub){ staffUnsub(); staffUnsub = null; } staffRows = []; staffErr = ""; return; }
+  if(staffUnsub) return;
+  staffUnsub = onSnapshot(collection(db, STAFF_COL), snap => {
+    const rows = []; snap.forEach(d => rows.push({ ...d.data(), email:d.id }));
+    rows.sort((a, b) => (b.admin === true) - (a.admin === true) || a.email.localeCompare(b.email));
+    staffRows = rows; staffErr = "";
+    if($("sdlg").open) renderStaff();
+    const mine = rows.find(r => r.email === myEmail());
+    if(mine && String(mine.name || "").trim() !== staffName){ staffName = String(mine.name || "").trim(); renderAuth(); }
+  }, e => { staffErr = e.code || e.message; staffRows = []; if($("sdlg").open) renderStaff("목록을 불러오지 못했어요: " + staffErr); });
+}
 function openStaff(){
   if(!isAdmin){ toast("관리자만 열 수 있어요"); return; }
-  staffRows = []; renderStaff("불러오는 중…");
   $("sEmail").value = ""; $("sName").value = ""; $("sAdmin").checked = false;
   $("sdlg").showModal();
-  try {
-    staffUnsub = onSnapshot(collection(db, STAFF_COL), snap => {
-      const rows = []; snap.forEach(d => rows.push({ ...d.data(), email:d.id }));
-      rows.sort((a, b) => (b.admin === true) - (a.admin === true) || a.email.localeCompare(b.email));
-      staffRows = rows; renderStaff();
-      const mine = rows.find(r => r.email === myEmail());
-      if(mine && String(mine.name || "").trim() !== staffName){ staffName = String(mine.name || "").trim(); renderAuth(); }
-    }, e => renderStaff("목록을 불러오지 못했어요: " + (e.code || e.message)));
-  } catch(e){ renderStaff("목록을 불러오지 못했어요: " + (e.code || e.message)); }
+  renderStaff(staffErr ? "목록을 불러오지 못했어요: " + staffErr : (staffRows.length ? undefined : "불러오는 중…"));
 }
 async function addStaff(){
   const email = $("sEmail").value.trim().toLowerCase(), name = $("sName").value.trim();
@@ -1111,7 +1190,6 @@ async function addStaff(){
 $("sAdd").onclick = addStaff;
 $("sEmail").onkeydown = $("sName").onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); addStaff(); } };
 $("sClose").onclick = () => { if($("sdlg").open) $("sdlg").close(); };
-$("sdlg").onclose = () => { if(staffUnsub){ staffUnsub(); staffUnsub = null; } };
 $("sList").addEventListener("click", async e => {
   const b = e.target.closest("[data-sact]"); if(!b) return;
   const email = b.dataset.e, row = staffRows.find(r => r.email === email); if(!row) return;
@@ -1152,6 +1230,10 @@ async function handleAct(el){
       return mutate(l.id, secs => { secs.push({ id:uid("s"), title:"준비물", kind:"supply", date:"", note:"", groups:[{ id:uid("g"), name:"", items:[] }] }); });
     case "home": location.hash = "#/"; return;
     case "staff": return openStaff();
+    case "rview": rosterView = el.dataset.k; render(); return;
+    case "r-add": return l && editRoster(l, null);
+    case "r-edit": return l && editRoster(l, rosterArr(l).find(r => r.id === el.dataset.r));
+    case "r-del": return l && delRoster(l, rosterArr(l).find(r => r.id === el.dataset.r));
     case "tpl": return openTpl();
     case "save-tpl": return l && saveAsTpl(l);
     case "new": return createList();
@@ -1278,7 +1360,7 @@ if(!CONFIGURED){
     user = (u && !u.isAnonymous && u.email) ? u : null;
     if(user){ const r = await checkStaff(user); canEdit = r.ok; isAdmin = r.ok && r.admin; staffName = r.ok ? (r.name || "") : ""; }
     else { canEdit = false; isAdmin = false; staffName = ""; }
-    subscribe(); subscribeTpl(); render();
+    subscribe(); subscribeTpl(); subscribeStaffList(); render();
   });
 }
 </script>
