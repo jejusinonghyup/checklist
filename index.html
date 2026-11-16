@@ -50,8 +50,9 @@
   .card .bar>i{background:var(--g2)}
   .c-meta{font-size:12.5px;color:var(--mute)}
   .c-act{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-  .srow{display:flex;gap:6px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
-  .srow .si{flex:1;min-width:0}
+  .srow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+  .srow .si{flex:1 1 100%;min-width:0}
+  .srow .sa{flex:1 1 100%;display:flex;gap:6px;justify-content:flex-end}
   .srow .si b{font-size:14px;margin-right:5px}
   .srow .si .badge{background:var(--bg);margin-right:4px}
   .srow .se{font-size:12px;color:var(--mute);overflow-wrap:anywhere}
@@ -60,6 +61,8 @@
   .sadd input[type=text]{width:100%;margin-bottom:7px;font:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9d4ce;border-radius:9px;background:#fff;color:var(--ink)}
   .sadd input[type=checkbox]{width:18px;height:18px}
   .sadd label.chk{display:flex;gap:7px;align-items:center;font-size:13px;margin:2px 0 10px}
+  #tpList{max-height:52vh;overflow:auto;margin-bottom:10px}
+  .btn.pri.sm{background:var(--g);color:#fff;border:0}
   .empty{padding:28px 14px;color:var(--mute);font-size:14px;text-align:center}
   .tools{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
   section.sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
@@ -157,6 +160,18 @@
     </div>
   </form>
 </dialog>
+<dialog id="tpdlg">
+  <div style="padding:18px">
+    <h3>템플릿</h3>
+    <p class="dlg-msg" style="margin:0 0 8px">자주 쓰는 구성을 저장해 두고, 새 체크리스트를 만들 때 골라 쓰세요.</p>
+    <div id="tpList"></div>
+    <div class="dlg-actions" style="flex-wrap:wrap">
+      <button type="button" class="btn line" id="tpClose">닫기</button>
+      <button type="button" class="btn line" id="tpCsv">📥 CSV 가져오기</button>
+      <button type="button" class="btn pri" id="tpNew">＋ 새 템플릿</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="sdlg">
   <div style="padding:18px">
     <h3>직원 관리</h3>
@@ -199,15 +214,13 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 /* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
 const firebaseConfig = {
-  apiKey: "AIzaSyCwuWD8Zks7PDppvkU1vlCXQlvDFA9_PJs",
-  authDomain: "checklist-f6795.firebaseapp.com",
-  projectId: "checklist-f6795",
-  storageBucket: "checklist-f6795.firebasestorage.app",
-  messagingSenderId: "901255037556",
-  appId: "1:901255037556:web:55953089f92bcb788ec721"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
 };
-
 const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
+const TPL_COL = "checklistTemplates"; // 저장된 템플릿 (구조만, 체크 없음)
 const STAFF_COL = "checklistStaff";  // 편집 허용 이메일 (문서 ID = 소문자 이메일, admin:true면 영구 삭제 가능)
 
 /* ===== 기본 템플릿: 2026 AX 농업포럼 체험 부스 ===== */
@@ -345,6 +358,8 @@ function parseOutline(text){
   const newGrp = n => { if(!sec) newSec("체크리스트"); grp = { id:uid("g"), name:n, items:[] }; sec.groups.push(grp); };
   for(const raw of String(text).split(/\r?\n/)){
     const line = raw.trim(); if(!line) continue;
+    if(/^@일정(\s|$)/.test(line)){ if(sec) sec.date = line.replace(/^@일정\s*/, ""); continue; }
+    if(/^@안내(\s|$)/.test(line)){ if(sec) sec.note = line.replace(/^@안내\s*/, ""); continue; }
     if(line.startsWith("## ")) newGrp(line.slice(3).trim());
     else if(line.startsWith("# ")) newSec(line.slice(2).trim());
     else {
@@ -368,7 +383,8 @@ function stats(l, kind){
 const timeOf = l => (toD(l.status==="trash" ? l.trashedAt : l.updatedAt) || new Date(0)).getTime();
 
 /* ===== 상태 ===== */
-let auth, db, user = null, canEdit = false, isAdmin = false;
+let auth, db, user = null, canEdit = false, isAdmin = false, staffName = "";
+const myName = () => staffName || (user && (user.displayName || user.email)) || "";
 const lists = new Map();
 let loaded = false, tab = "active", route = { name:"home", id:null };
 let onlyOpen = false, editMode = false, ltab = "task", noteT = null, noteEdit = null;
@@ -390,7 +406,7 @@ function openForm({ title, message, fields = [], ok = "확인", danger = false, 
       return `<div class="fld" data-key="${f.key}"><label for="${id}">${esc(f.label)}</label>${inp}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:""}</div>`;
     }).join("");
     const okBtn = $("dlgOk"); okBtn.textContent = ok; okBtn.className = "btn " + (danger ? "danger" : "pri");
-    const finish = v => { if(settled) return; settled = true; if(d.open) d.close(); res(v); };
+    const finish = v => { if(settled) return; settled = true; if(d.open){ d._skip = true; d.close(); } res(v); };
     const submit = () => {
       const out = {};
       fields.forEach((f, i) => { out[f.key] = $("f" + i).value; });
@@ -400,7 +416,7 @@ function openForm({ title, message, fields = [], ok = "확인", danger = false, 
     $("dlgForm").onsubmit = e => { e.preventDefault(); submit(); };
     $("dlgBody").onkeydown = e => { if(e.key === "Enter" && e.target.tagName === "INPUT"){ e.preventDefault(); submit(); } };
     $("dlgCancel").onclick = () => finish(null);
-    d.onclose = () => finish(null);
+    d.onclose = () => { if(d._skip){ d._skip = false; return; } finish(null); };   // 바로 이어서 다시 열 때 이전 창의 닫힘 이벤트는 무시
     d.showModal();
     if(after) after($("dlgBody"));
     const first = $("dlgBody").querySelector("input,textarea,select"); if(first) first.focus();
@@ -416,7 +432,7 @@ function renderAuth(){
     a.innerHTML = `<button class="btn" id="loginBtn">Google로 로그인</button>`;
     $("loginBtn").onclick = login;
   } else {
-    a.innerHTML = `<span>${esc(user.displayName || user.email)}</span>
+    a.innerHTML = `<span>${esc(myName())}</span>
       <span class="badge ${canEdit?"":"ro"}">${canEdit?(isAdmin?"관리자":"편집 가능"):"보기 전용"}</span>
       <button class="btn ghost" id="logoutBtn">로그아웃</button>`;
     $("logoutBtn").onclick = () => signOut(auth);
@@ -438,7 +454,7 @@ async function checkStaff(u){
   const email = u.email.toLowerCase(), key = "ckStaff2:" + email;
   try {
     const s = await getDoc(doc(db, STAFF_COL, email));
-    const r = { ok:s.exists(), admin: s.exists() && s.data().admin === true };
+    const r = { ok:s.exists(), admin: s.exists() && s.data().admin === true, name: s.exists() ? String(s.data().name || "").trim() : "" };
     try { localStorage.setItem(key, JSON.stringify(r)); } catch(_){}
     return r;
   } catch(e){
@@ -499,7 +515,7 @@ function guard(needActive = false, id = null){
   if(needActive && id && lists.get(id)?.status !== "active"){ toast("진행 중인 체크리스트만 수정할 수 있어요"); return false; }
   return true;
 }
-const who = () => ({ by:user.email.toLowerCase(), byName:user.displayName || user.email });
+const who = () => ({ by:user.email.toLowerCase(), byName:myName() });
 const fail = e => toast("저장 실패: " + (e.code || e.message));
 
 function toggleItem(id, itemId){
@@ -560,21 +576,22 @@ async function emptyTrash(){
   }
 }
 
-async function createList(){
+async function createList(pre = {}){
   if(!guard()) return;
   const others = [...lists.values()].filter(l => l.status !== "trash").sort((a, b) => timeOf(b) - timeOf(a));
   const opts = [
     { value:"blank", label:"빈 체크리스트" },
-    { value:"ax", label:"템플릿: 2026 AX 농업포럼 체험 부스" },
+    { value:"ax", label:"기본 템플릿: 2026 AX 농업포럼 체험 부스" },
+    ...[...templates.values()].sort((a, b) => a.name.localeCompare(b.name)).map(t => ({ value:"tpl:" + t.id, label:"템플릿: " + t.name })),
     { value:"text", label:"텍스트로 붙여넣어 만들기" },
     ...others.map(l => ({ value:"copy:" + l.id, label:`복사: ${l.title} (체크 초기화)` }))
   ];
   const v = await openForm({
     title:"새 체크리스트", ok:"만들기",
     fields:[
-      { key:"title", label:"이름", required:true, placeholder:"예) 2026 마라톤 홍보부스" },
+      { key:"title", label:"이름", required:true, placeholder:"예) 2026 마라톤 홍보부스", value:pre.title || "" },
       { key:"dateText", label:"행사 일정 (선택)", placeholder:"예) 2026.12.05" },
-      { key:"src", label:"시작 방식", type:"select", options:opts, value:"blank" },
+      { key:"src", label:"시작 방식", type:"select", options:opts, value:pre.src || "blank" },
       { key:"text", label:"항목 붙여넣기", type:"textarea",
         placeholder:"# 사전 준비\n## 장비\n- 사이니지 점검\n# [준비물] 휴대 물품\n## 소모품\n- 인화용지 | 200장 | 김팀장",
         hint:"# 구분  ## 소분류  - 항목\n# [준비물] 구분  → 준비물 탭으로 들어가요\n준비물 항목은 “이름 | 수량 | 담당”(수량·담당은 생략 가능)" }
@@ -589,12 +606,13 @@ async function createList(){
   const title = v.title.trim(); if(!title){ toast("이름을 입력해 주세요"); return; }
   let sections = [];
   if(v.src === "ax") sections = buildSections(TEMPLATE_AX);
+  else if(v.src.startsWith("tpl:")){ const t = templates.get(v.src.slice(4)); if(t) sections = reid(t.sections); }
   else if(v.src === "text") sections = parseOutline(v.text);
   else if(v.src.startsWith("copy:")){ const o = lists.get(v.src.slice(5)); if(o) sections = clone(o.sections); }
   if(!sections.length) sections = [{ id:uid("s"), title:"체크리스트", date:"", note:"", groups:[{ id:uid("g"), name:"", items:[] }] }];
   const r = doc(collection(db, COL));
   setDoc(r, { title, dateText:v.dateText.trim(), status:"active", sections, checks:{},
-    createdBy:user.email.toLowerCase(), createdByName:user.displayName || user.email,
+    createdBy:user.email.toLowerCase(), createdByName:myName(),
     createdAt:serverTimestamp(), updatedAt:serverTimestamp() })
     .catch(fail);
   location.hash = "#/c/" + r.id;
@@ -608,7 +626,7 @@ function cloneList(id){
     if(!v || !v.title.trim()) return;
     const r = doc(collection(db, COL));
     setDoc(r, { title:v.title.trim(), dateText:v.dateText.trim(), status:"active", sections:clone(l.sections), checks:{},
-      createdBy:user.email.toLowerCase(), createdByName:user.displayName || user.email,
+      createdBy:user.email.toLowerCase(), createdByName:myName(),
       createdAt:serverTimestamp(), updatedAt:serverTimestamp() }).catch(fail);
     location.hash = "#/c/" + r.id;
     toast("복제했어요");
@@ -630,14 +648,15 @@ function rowsOf(l){
   return out;
 }
 function stamp(){ return new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"short"}).format(new Date()).replace(/[-: ]/g,"").slice(0,12); }
-function exportCSV(l){
-  const csv = rowsOf(l).map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+function saveCSV(name, rows){
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" }));
-  a.download = `${l.title.replace(/[\\/:*?"<>|]/g,"")}_${stamp()}.csv`;
+  a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type:"text/csv;charset=utf-8" }));
+  a.download = name.replace(/[\\/:*?"<>|]/g,"") + ".csv";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
+function exportCSV(l){ saveCSV(`${l.title}_${stamp()}`, rowsOf(l)); }
 async function copyTSV(l){
   const tsv = rowsOf(l).map(r => r.map(c => String(c).replace(/[\t\r\n]+/g," ")).join("\t")).join("\n");
   try { await navigator.clipboard.writeText(tsv); toast("복사했어요. 구글 시트에 붙여넣기 하세요"); }
@@ -669,6 +688,7 @@ function renderHome(){
   if(tab === "trash" && !canEdit) tab = "active";
   const tabBtn = (k, label) => `<button class="tab ${tab===k?"on":""}" data-act="tab" data-tab="${k}">${label} ${counts[k]}</button>`;
   let html = `<div class="tabs">${tabBtn("active","진행 중")}${tabBtn("archived","보관함")}${canEdit?tabBtn("trash","휴지통"):""}<span class="sp"></span>
+    ${canEdit ? `<button class="btn line" data-act="tpl">📋 템플릿</button>` : ""}
     ${isAdmin ? `<button class="btn line" data-act="staff">👥 직원 관리</button>` : ""}
     ${canEdit ? `<button class="btn pri" data-act="new">＋ 새 체크리스트</button>` : (CONFIGURED && !user ? `<span style="font-size:12.5px;color:var(--mute)">만들려면 로그인하세요</span>` : "")}</div>`;
   if(tab === "trash" && canEdit){
@@ -733,7 +753,7 @@ function renderList(){
     <button class="btn line" data-act="csv">CSV 내려받기</button>
     <button class="btn line" data-act="tsv">구글 시트용 복사</button>
     ${canEdit && l.status==="active" ? `<button class="btn ${editing?"pri":"line"}" data-act="edit">${editing?"편집 끝내기":"✎ 편집"}</button>` : ""}
-    ${canEdit && l.status!=="trash" ? `<button class="btn line" data-act="clone">복제</button>` : ""}
+    ${canEdit && l.status!=="trash" ? `<button class="btn line" data-act="clone">복제</button><button class="btn line" data-act="save-tpl">템플릿으로 저장</button>` : ""}
     ${canEdit && l.status==="active" ? `<button class="btn line" data-act="archive" data-id="${l.id}">보관</button>` : ""}
     ${canEdit && l.status!=="trash" ? `<button class="btn dl" data-act="trash" data-id="${l.id}">삭제</button>` : ""}
   </div>`;
@@ -852,6 +872,203 @@ $("nList").addEventListener("click", async e => {
   }
 });
 
+/* ===== 템플릿 (저장·편집·CSV) ===== */
+let templates = new Map(), tplUnsub = null, tplErr = "";
+const OUTLINE_PH = "# 사전 준비\n@일정 11/16 ~ 11/17\n## 장비\n- 사이니지 점검\n# [준비물] 휴대 물품\n## 소모품\n- 인화용지 | 200장 | 김팀장";
+const OUTLINE_HINT = "# 구분   ## 소분류   - 항목\n@일정 …   @안내 …  (구분 바로 아래 줄, 선택)\n# [준비물] 구분 → 준비물 탭, 항목은 “이름 | 수량 | 담당”";
+const reid = secs => secs.map(s => ({ id:uid("s"), title:s.title, kind:s.kind || "task", date:s.date || "", note:s.note || "",
+  groups:(s.groups || []).map(g => ({ id:uid("g"), name:g.name || "",
+    items:(g.items || []).map(i => ({ id:uid("i"), text:i.text, ...(i.qty ? { qty:i.qty } : {}), ...(i.owner ? { owner:i.owner } : {}) })) })) }));
+const countSecs = secs => ({ s:secs.length, i:secs.reduce((n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0), 0) });
+function toOutline(secs){
+  const out = [];
+  secs.forEach(s => {
+    out.push("# " + (s.kind === "supply" ? "[준비물] " : "") + s.title);
+    if(s.date) out.push("@일정 " + s.date);
+    if(s.note) out.push("@안내 " + String(s.note).replace(/\s*\n\s*/g, " "));
+    s.groups.forEach((g, gi) => {
+      if(g.name) out.push("## " + g.name); else if(gi > 0) out.push("## 기타");
+      g.items.forEach(i => out.push("- " + (s.kind === "supply" ? [i.text, i.qty || "", i.owner || ""].join(" | ").replace(/(\s*\|\s*)+$/, "") : i.text)));
+    });
+  });
+  return out.join("\n");
+}
+function parseCSV(text){
+  text = String(text).replace(/^\uFEFF/, "");
+  const first = text.split(/\r?\n/, 1)[0] || "";
+  const d = (first.includes("\t") && !first.includes(",")) ? "\t" : ",";
+  const rows = []; let row = [], cur = "", q = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){ if(c === '"'){ if(text[i + 1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+    else if(c === '"' && cur === "") q = true;
+    else if(c === d){ row.push(cur); cur = ""; }
+    else if(c === "\n" || c === "\r"){ if(c === "\r" && text[i + 1] === "\n") i++; row.push(cur); cur = ""; rows.push(row); row = []; }
+    else cur += c;
+  }
+  if(cur !== "" || row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(x => String(x).trim() !== ""));
+}
+/* CSV → 구성. 필요한 열: 항목 (그 외 유형·구분·소분류·수량·담당·일정·안내는 선택). 없으면 null */
+function csvToSections(text){
+  const rows = parseCSV(text); if(!rows.length) return [];
+  const head = rows[0].map(h => String(h).trim());
+  const ix = n => head.indexOf(n), iI = ix("항목"); if(iI < 0) return null;
+  const iT = ix("유형"), iS = ix("구분"), iG = ix("소분류"), iQ = ix("수량"), iO = ix("담당"), iD = ix("일정"), iN = ix("안내");
+  const get = (r, i) => i < 0 ? "" : String(r[i] ?? "").trim();
+  const secs = [], byKey = new Map();
+  for(const r of rows.slice(1)){
+    const typ = get(r, iT), txt = get(r, iI);
+    if(!txt || typ === "공유 메모") continue;
+    const kind = /준비물|supply/i.test(typ) ? "supply" : "task";
+    let title = get(r, iS) || (kind === "supply" ? "준비물" : "체크리스트"), date = get(r, iD);
+    const m = title.match(/\s*\(([\d.\/~\-\s]+)\)\s*$/);          // 내보낸 CSV의 “구분 (일정)” 모양
+    if(m){ title = title.slice(0, m.index).trim() || title; if(!date) date = m[1].trim(); }
+    const key = kind + "\u0001" + title;
+    let sec = byKey.get(key);
+    if(!sec){ sec = { id:uid("s"), title, kind, date:"", note:"", groups:[] }; byKey.set(key, sec); secs.push(sec); }
+    if(!sec.date && date) sec.date = date;
+    const note = get(r, iN); if(!sec.note && note) sec.note = note;
+    const gname = get(r, iG);
+    let grp = sec.groups.find(g => g.name === gname);
+    if(!grp){ grp = { id:uid("g"), name:gname, items:[] }; sec.groups.push(grp); }
+    const qty = get(r, iQ), owner = get(r, iO);
+    grp.items.push({ id:uid("i"), text:txt, ...(kind === "supply" && qty ? { qty } : {}), ...(kind === "supply" && owner ? { owner } : {}) });
+  }
+  return secs;
+}
+function tplRows(t){
+  const out = [["유형", "구분", "소분류", "항목", "수량", "담당", "일정", "안내"]];
+  t.sections.forEach(s => { let first = true;
+    s.groups.forEach(g => g.items.forEach(i => {
+      out.push([s.kind === "supply" ? "준비물" : "할 일", s.title, g.name, i.text, i.qty || "", i.owner || "", first ? (s.date || "") : "", first ? (s.note || "") : ""]);
+      first = false;
+    }));
+  });
+  return out;
+}
+const builtinTpl = () => ({ id:"ax", name:"2026 AX 농업포럼 체험 부스", desc:"기본 제공 템플릿 (수정·삭제할 수 없어요. 복사해서 내 템플릿으로 고쳐 쓰세요)", builtin:true, sections:buildSections(TEMPLATE_AX) });
+function subscribeTpl(){
+  if(!canEdit){ if(tplUnsub){ tplUnsub(); tplUnsub = null; } templates.clear(); tplErr = ""; return; }
+  if(tplUnsub) return;
+  tplUnsub = onSnapshot(collection(db, TPL_COL), snap => {
+    templates.clear(); tplErr = "";
+    snap.forEach(d => { const v = d.data({ serverTimestamps:"estimate" }); templates.set(d.id, { ...v, id:d.id, name:v.name || "(이름 없음)", sections:v.sections || [] }); });
+    if($("tpdlg").open) renderTpl();
+  }, err => { tplErr = err.code || err.message; templates.clear(); if($("tpdlg").open) renderTpl(); });
+}
+function renderTpl(){
+  const me = myEmail();
+  const saved = [...templates.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const row = t => {
+    const c = countSecs(t.sections);
+    const meta = t.builtin ? "" : `<div class="se">${esc(t.updatedByName || t.createdByName || "")}${(t.updatedAt || t.createdAt) ? " · " + fmt(t.updatedAt || t.createdAt) : ""}</div>`;
+    const mine = !t.builtin && (isAdmin || t.createdBy === me);
+    return `<div class="srow"><div class="si"><b>${esc(t.name)}</b>${t.builtin ? `<span class="badge">기본 제공</span>` : ""}
+      ${t.desc ? `<div class="se">${esc(t.desc)}</div>` : ""}<div class="se">구분 ${c.s}개 · 항목 ${c.i}개</div>${meta}</div>
+      <div class="sa"><button type="button" class="btn pri sm" data-tact="use" data-id="${esc(t.id)}">사용</button>
+        ${t.builtin ? "" : `<button type="button" class="btn line sm" data-tact="edit" data-id="${esc(t.id)}">편집</button>`}
+        <button type="button" class="btn line sm" data-tact="csv" data-id="${esc(t.id)}">CSV</button>
+        <button type="button" class="btn line sm" data-tact="dup" data-id="${esc(t.id)}">${t.builtin ? "내 템플릿으로 복사" : "복제"}</button>
+        ${mine ? `<button type="button" class="btn dl sm" data-tact="del" data-id="${esc(t.id)}">삭제</button>` : ""}</div></div>`;
+  };
+  let html = row(builtinTpl());
+  if(tplErr) html += `<div class="empty">저장된 템플릿을 불러오지 못했어요 (${esc(tplErr)}).<br>Firestore 규칙에 템플릿 규칙이 추가됐는지 확인해 주세요.</div>`;
+  else if(!saved.length) html += `<div class="empty">저장된 템플릿이 아직 없어요.<br>‘＋ 새 템플릿’, ‘CSV 가져오기’, 또는 체크리스트 화면의 ‘템플릿으로 저장’으로 만들어 보세요.</div>`;
+  else html += saved.map(row).join("");
+  $("tpList").innerHTML = html;
+}
+function openTpl(){
+  if(!canEdit){ toast("직원만 열 수 있어요"); return; }
+  renderTpl(); $("tpdlg").showModal();
+}
+const getTpl = id => id === "ax" ? builtinTpl() : templates.get(id);
+async function putTpl(name, desc, sections, id){
+  const base = { name, desc, sections, updatedBy:myEmail(), updatedByName:myName(), updatedAt:serverTimestamp() };
+  if(id) return updateDoc(doc(db, TPL_COL, id), base);
+  return setDoc(doc(collection(db, TPL_COL)), { ...base, createdBy:myEmail(), createdByName:myName(), createdAt:serverTimestamp() });
+}
+async function editTpl(t){
+  const v = await openForm({ title:t ? "템플릿 편집" : "새 템플릿", ok:"저장",
+    fields:[
+      { key:"name", label:"템플릿 이름", value:t ? t.name : "", required:true, placeholder:"예) 마라톤 홍보부스" },
+      { key:"desc", label:"설명 (선택)", value:t ? (t.desc || "") : "", placeholder:"어떤 행사에 쓰는지" },
+      { key:"text", label:"항목", type:"textarea", value:t ? toOutline(t.sections) : "", placeholder:OUTLINE_PH, hint:OUTLINE_HINT }
+    ],
+    after: body => { const ta = body.querySelector("textarea"); if(ta) ta.style.minHeight = "34vh"; }
+  });
+  if(v === null) return;
+  const name = v.name.trim(); if(!name){ toast("이름을 입력해 주세요"); return; }
+  const sections = parseOutline(v.text);
+  if(!countSecs(sections).i){ toast("항목이 하나도 없어요. 저장하지 않았어요"); return; }
+  try { await putTpl(name, v.desc.trim(), sections, t && t.id); toast(t ? "템플릿을 수정했어요" : "템플릿을 만들었어요"); }
+  catch(e){ toast("저장하지 못했어요: " + (e.code || e.message)); }
+}
+async function importTpl(pre = {}, err = ""){
+  const v = await openForm({ title:"CSV로 템플릿 만들기", ok:"가져오기",
+    message:(err ? "⚠ " + err + "\n\n" : "") + "엑셀·구글 시트의 CSV 파일을 고르거나 표를 복사해 붙여넣으세요. 첫 줄은 제목 줄이고 ‘항목’ 열이 꼭 있어야 해요. (유형·구분·소분류·수량·담당·일정·안내 열은 선택)",
+    fields:[
+      { key:"name", label:"템플릿 이름", value:pre.name || "", required:true },
+      { key:"desc", label:"설명 (선택)", value:pre.desc || "" },
+      { key:"text", label:"CSV 내용", type:"textarea", value:pre.text || "", placeholder:"유형,구분,소분류,항목,수량,담당\n할 일,사전 준비,장비,사이니지 점검,,\n준비물,휴대 물품,소모품,인화용지,200장,김팀장" }
+    ],
+    after: body => {
+      const f = document.createElement("div"); f.className = "fld";
+      f.innerHTML = `<label for="csvFile">CSV 파일 고르기</label><input id="csvFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain">`;
+      body.insertBefore(f, body.querySelector(".fld"));
+      f.querySelector("input").onchange = async e => {
+        const file = e.target.files[0]; if(!file) return;
+        const buf = await file.arrayBuffer(); let txt = new TextDecoder("utf-8").decode(buf);
+        if(txt.includes("\uFFFD")){ try { txt = new TextDecoder("euc-kr").decode(buf); } catch(_){} }   // 엑셀 한국어 CSV
+        body.querySelector("textarea").value = txt;
+        const nm = body.querySelector("#f0"); if(!nm.value.trim()) nm.value = file.name.replace(/\.[^.]+$/, "");
+      };
+    }
+  });
+  if(v === null) return;
+  const name = v.name.trim();
+  if(!name) return importTpl(v, "템플릿 이름을 입력해 주세요.");
+  const secs = csvToSections(v.text);
+  if(secs === null) return importTpl(v, "‘항목’이라는 제목 열을 찾지 못했어요. 첫 줄에 유형,구분,소분류,항목 … 같은 제목 줄이 있어야 해요.");
+  if(!countSecs(secs).i) return importTpl(v, "가져올 항목이 없어요. CSV 내용을 확인해 주세요.");
+  try {
+    await putTpl(name, v.desc.trim(), secs);
+    const c = countSecs(secs); toast(`템플릿을 만들었어요 (구분 ${c.s}개 · 항목 ${c.i}개)`);
+  } catch(e){ toast("저장하지 못했어요: " + (e.code || e.message)); }
+}
+async function saveAsTpl(l){
+  if(!guard()) return;
+  const v = await openForm({ title:"템플릿으로 저장", ok:"저장", message:"이 체크리스트의 구성(구분·항목·준비물)만 저장하고, 체크와 메모는 가져가지 않아요.",
+    fields:[{ key:"name", label:"템플릿 이름", value:l.title, required:true }, { key:"desc", label:"설명 (선택)", value:"" }] });
+  if(v === null) return;
+  const name = v.name.trim(); if(!name){ toast("이름을 입력해 주세요"); return; }
+  try { await putTpl(name, v.desc.trim(), reid(l.sections)); toast("템플릿으로 저장했어요. 홈의 ‘📋 템플릿’에서 볼 수 있어요"); }
+  catch(e){ toast("저장하지 못했어요: " + (e.code || e.message)); }
+}
+$("tpNew").onclick = () => editTpl(null);
+$("tpCsv").onclick = () => importTpl();
+$("tpClose").onclick = () => { if($("tpdlg").open) $("tpdlg").close(); };
+$("tpList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-tact]"); if(!b) return;
+  const t = getTpl(b.dataset.id); if(!t) return;
+  try {
+    switch(b.dataset.tact){
+      case "use": $("tpdlg").close(); return createList({ src:t.id === "ax" ? "ax" : "tpl:" + t.id, title:"" });
+      case "edit": return editTpl(t);
+      case "csv": saveCSV("템플릿_" + t.name, tplRows(t)); return;
+      case "dup": {
+        await putTpl(t.builtin ? t.name : t.name + " (복사)", t.builtin ? "" : (t.desc || ""), reid(t.sections));
+        toast(t.builtin ? "내 템플릿으로 복사했어요. 이제 편집할 수 있어요" : "복제했어요"); return;
+      }
+      case "del":
+        if(await confirmBox("템플릿 삭제", `‘${t.name}’ 템플릿을 삭제할까요? 이 템플릿으로 이미 만든 체크리스트에는 영향이 없어요.`, "삭제")){
+          await deleteDoc(doc(db, TPL_COL, t.id)); toast("삭제했어요");
+        }
+        return;
+    }
+  } catch(err){ toast("처리하지 못했어요: " + (err.code || err.message)); }
+});
+
 /* ===== 직원 관리 (관리자 전용) ===== */
 let staffUnsub = null, staffRows = [];
 const myEmail = () => ((user && user.email) || "").toLowerCase();
@@ -859,7 +1076,7 @@ function renderStaff(msg){
   const me = myEmail();
   $("sList").innerHTML = msg ? `<div class="empty">${esc(msg)}</div>` : (staffRows.length ? staffRows.map(r => `<div class="srow">
       <div class="si"><b>${esc(r.name || "(이름 없음)")}</b>${r.admin ? `<span class="badge">관리자</span>` : ""}${r.email === me ? `<span class="badge">나</span>` : ""}<div class="se">${esc(r.email)}</div></div>
-      ${r.email === me ? "" : `<button type="button" class="btn line sm" data-sact="toggle" data-e="${esc(r.email)}">${r.admin ? "관리자 해제" : "관리자 지정"}</button><button type="button" class="btn dl sm" data-sact="del" data-e="${esc(r.email)}">제거</button>`}
+      <div class="sa"><button type="button" class="btn line sm" data-sact="rename" data-e="${esc(r.email)}">이름 수정</button>${r.email === me ? "" : `<button type="button" class="btn line sm" data-sact="toggle" data-e="${esc(r.email)}">${r.admin ? "관리자 해제" : "관리자 지정"}</button><button type="button" class="btn dl sm" data-sact="del" data-e="${esc(r.email)}">제거</button>`}</div>
     </div>`).join("") : `<div class="empty">등록된 직원이 없어요.</div>`);
 }
 function openStaff(){
@@ -872,6 +1089,8 @@ function openStaff(){
       const rows = []; snap.forEach(d => rows.push({ ...d.data(), email:d.id }));
       rows.sort((a, b) => (b.admin === true) - (a.admin === true) || a.email.localeCompare(b.email));
       staffRows = rows; renderStaff();
+      const mine = rows.find(r => r.email === myEmail());
+      if(mine && String(mine.name || "").trim() !== staffName){ staffName = String(mine.name || "").trim(); renderAuth(); }
     }, e => renderStaff("목록을 불러오지 못했어요: " + (e.code || e.message)));
   } catch(e){ renderStaff("목록을 불러오지 못했어요: " + (e.code || e.message)); }
 }
@@ -893,7 +1112,15 @@ $("sClose").onclick = () => { if($("sdlg").open) $("sdlg").close(); };
 $("sdlg").onclose = () => { if(staffUnsub){ staffUnsub(); staffUnsub = null; } };
 $("sList").addEventListener("click", async e => {
   const b = e.target.closest("[data-sact]"); if(!b) return;
-  const email = b.dataset.e, row = staffRows.find(r => r.email === email); if(!row || email === myEmail()) return;
+  const email = b.dataset.e, row = staffRows.find(r => r.email === email); if(!row) return;
+  if(b.dataset.sact === "rename"){
+    const v = await openForm({ title:"이름 수정", ok:"저장", message:email, fields:[{ key:"name", label:"이름", value:row.name || "", placeholder:"예: 홍길동", hint:"앞으로 체크 기록·메모·작성자에 이 이름이 표시돼요. 이미 남은 기록은 그대로입니다." }] });
+    if(v === null) return;
+    try { await updateDoc(doc(db, STAFF_COL, email), { name:v.name.trim() }); toast("이름을 수정했어요"); }
+    catch(err){ toast("처리하지 못했어요: " + (err.code || err.message)); }
+    return;
+  }
+  if(email === myEmail()) return;
   try {
     if(b.dataset.sact === "toggle"){
       await updateDoc(doc(db, STAFF_COL, email), { admin: !(row.admin === true) });
@@ -923,6 +1150,8 @@ async function handleAct(el){
       return mutate(l.id, secs => { secs.push({ id:uid("s"), title:"준비물", kind:"supply", date:"", note:"", groups:[{ id:uid("g"), name:"", items:[] }] }); });
     case "home": location.hash = "#/"; return;
     case "staff": return openStaff();
+    case "tpl": return openTpl();
+    case "save-tpl": return l && saveAsTpl(l);
     case "new": return createList();
     case "archive": return archiveList(id);
     case "unarchive": return unarchiveList(id);
@@ -1045,9 +1274,9 @@ if(!CONFIGURED){
   subscribe();
   onAuthStateChanged(auth, async u => {
     user = (u && !u.isAnonymous && u.email) ? u : null;
-    if(user){ const r = await checkStaff(user); canEdit = r.ok; isAdmin = r.ok && r.admin; }
-    else { canEdit = false; isAdmin = false; }
-    subscribe(); render();
+    if(user){ const r = await checkStaff(user); canEdit = r.ok; isAdmin = r.ok && r.admin; staffName = r.ok ? (r.name || "") : ""; }
+    else { canEdit = false; isAdmin = false; staffName = ""; }
+    subscribe(); subscribeTpl(); render();
   });
 }
 </script>
