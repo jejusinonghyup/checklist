@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1f6f43">
+<title>제주시농협 행사 체크리스트</title>
+<style>
+  :root{--g:#1f6f43;--g2:#2f8f5a;--g-bg:#eaf5ee;--ink:#1c2420;--mute:#6b7a72;--line:#dfe6e2;--bg:#f6f8f7;--card:#fff;--warn:#b4570a;--warn-bg:#fff3e3;--red:#b3261e;--red-bg:#fdecea}
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;padding-bottom:90px}
+  header{position:sticky;top:0;z-index:20;background:var(--g);color:#fff;padding:10px 12px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:856px;margin:0 auto}
+  .back{appearance:none;border:0;background:rgba(255,255,255,.16);color:#fff;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;display:none}
+  h1{font-size:16px;margin:0;flex:1 1 180px;line-height:1.3;min-width:0}
+  h1 small{display:block;font-weight:400;opacity:.8;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .auth{display:flex;align-items:center;gap:8px;font-size:13px}
+  .btn{appearance:none;border:0;border-radius:8px;padding:8px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--g)}
+  .btn.ghost{background:rgba(255,255,255,.16);color:#fff}
+  .btn.line{background:#fff;color:var(--g);border:1px solid var(--line)}
+  .btn.pri{background:var(--g);color:#fff}
+  .btn.danger{background:var(--red);color:#fff}
+  .btn.dl{background:#fff;color:var(--red);border:1px solid #efc4c0}
+  .btn.sm{padding:5px 9px;font-size:12px}
+  .btn[disabled]{opacity:.5;cursor:default}
+  .badge{display:inline-block;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700;background:#fff;color:var(--g)}
+  .badge.ro{background:var(--warn-bg);color:var(--warn)}
+  .pill{font-size:11px;border-radius:99px;padding:2px 8px;background:rgba(255,255,255,.18);white-space:nowrap}
+  .total{max-width:856px;margin:8px auto 0;display:none;align-items:center;gap:10px;font-size:13px}
+  .bar{flex:1;height:8px;border-radius:99px;background:rgba(255,255,255,.25);overflow:hidden}
+  .bar>i{display:block;height:100%;background:#fff;width:0;transition:width .25s}
+  main{max-width:880px;margin:0 auto;padding:12px}
+  .notice{border-radius:10px;padding:10px 12px;font-size:13.5px;margin-bottom:12px;background:var(--warn-bg);color:#6b3a07;border:1px solid #f1d3a8}
+  .notice.red{background:var(--red-bg);color:#7a1b15;border-color:#f1c2bd}
+  .notice .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+  .tab{appearance:none;border:1px solid var(--line);background:#fff;border-radius:99px;padding:7px 14px;font:inherit;font-size:14px;font-weight:600;color:var(--mute);cursor:pointer}
+  .tab.on{background:var(--g);border-color:var(--g);color:#fff}
+  .tabs .sp{flex:1}
+  .cards{display:grid;gap:10px}
+  @media (min-width:720px){.cards{grid-template-columns:repeat(2,1fr)}}
+  @media (min-width:720px){main{padding:16px 12px}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer}
+  .card:active{background:var(--g-bg)}
+  .c-top{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .c-top h3{margin:0;font-size:16px;flex:1 1 auto}
+  .c-date{font-size:12.5px;color:var(--mute)}
+  .card .bar{background:var(--line);margin:10px 0 6px}
+  .card .bar>i{background:var(--g2)}
+  .c-meta{font-size:12.5px;color:var(--mute)}
+  .c-act{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .empty{padding:28px 14px;color:var(--mute);font-size:14px;text-align:center}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
+  section.sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+  .sec-h{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none;background:var(--g-bg)}
+  .sec-h h2{font-size:16px;margin:0;flex:1;min-width:0}
+  .sec-h h2 span{font-weight:500;color:var(--mute);font-size:13px;margin-left:6px}
+  .cnt{font-size:12.5px;font-weight:700;color:var(--g);white-space:nowrap}
+  .chev{transition:transform .2s;color:var(--mute)}
+  .sec.closed .chev{transform:rotate(-90deg)}
+  .sec.closed .sec-b{display:none}
+  .sec-bar{height:3px;background:var(--line)}
+  .sec-bar>i{display:block;height:100%;background:var(--g2);width:0;transition:width .25s}
+  .sec-note{margin:0;padding:10px 14px 4px;color:var(--mute);font-size:13.5px}
+  .grp{display:flex;align-items:center;gap:6px;padding:6px 14px 2px;font-size:12.5px;font-weight:800;color:var(--g);letter-spacing:.02em}
+  .grp .nm{flex:1}
+  ul{list-style:none;margin:0;padding:0 6px 8px}
+  li.item label{display:flex;gap:12px;align-items:flex-start;padding:10px 8px;cursor:pointer}
+  li.item input{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:24px;height:24px;margin:1px 0 0;border:2px solid #b7c4bd;border-radius:7px;background:#fff;display:grid;place-content:center;cursor:pointer}
+  li.item input:checked{background:var(--g2);border-color:var(--g2)}
+  li.item input:checked::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg) translate(-1px,-1px)}
+  li.item.done .t{color:var(--mute);text-decoration:line-through;text-decoration-color:#b7c4bd}
+  li.item.lock label,li.item.lock input{cursor:default}
+  li.item:active{background:var(--g-bg)}
+  li.item.edit{display:flex;gap:8px;align-items:flex-start;padding:8px;border-bottom:1px dashed var(--line)}
+  .txt{flex:1;word-break:keep-all}
+  .sup{display:block;font-size:12.5px;color:var(--mute);margin-top:1px}
+  .sup b{color:var(--ink)}
+  .meta{display:block;font-size:12px;color:var(--g);margin-top:2px;text-decoration:none}
+  .ctl{display:flex;gap:4px;flex:0 0 auto}
+  .ib{appearance:none;border:1px solid var(--line);background:#fff;border-radius:7px;min-width:30px;height:30px;font-size:13px;cursor:pointer;color:var(--ink);padding:0 6px}
+  .ib.del{color:var(--red)}
+  .add-row{padding:4px 14px 12px;display:flex;gap:8px;flex-wrap:wrap}
+  li.item:not(.edit){display:flex;align-items:flex-start}
+  li.item:not(.edit) label{flex:1;min-width:0}
+  .note-btn{flex:0 0 auto;appearance:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:2px 8px;font:inherit;font-size:12px;margin:8px 4px 0 0;color:var(--mute);cursor:pointer}
+  .note-btn.has{color:var(--g);border-color:var(--g2);background:var(--g-bg);font-weight:700}
+  .memo{display:block;font-size:12.5px;color:#7a5a12;background:#fff8e1;border-radius:6px;padding:2px 7px;margin-top:3px;width:fit-content;max-width:100%}
+  .memo b{color:#5c4308}
+  .pmemo{background:#fff8e1;border:1px solid #f1e0a6;border-radius:12px;padding:10px 12px;margin-bottom:12px}
+  .pm-h{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#5c4308}
+  .pm-n{font-size:13.5px;margin-top:6px;color:#4a3a0b;border-top:1px dashed #ecd98f;padding-top:6px}
+  .pm-n span{color:#8a7a45;font-size:12px;margin-left:4px}
+  .pm-n div{white-space:pre-wrap;word-break:break-word;margin-top:1px}
+  .nt{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px;background:#fff}
+  .nt-h{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:var(--mute)}
+  .nt-h b{color:var(--ink);font-size:13.5px}
+  .nt-b{white-space:pre-wrap;word-break:break-word;margin-top:2px;font-size:14.5px}
+  .nt-a{display:flex;gap:6px;margin-top:6px}
+  #nList{max-height:42vh;overflow:auto;margin-bottom:8px}
+  #nText{width:100%;min-height:78px;font:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9d4ce;border-radius:9px;resize:vertical}
+  dialog{border:0;border-radius:16px;padding:0;width:min(94vw,460px);box-shadow:0 10px 40px rgba(0,0,0,.3);color:var(--ink)}
+  dialog::backdrop{background:rgba(0,0,0,.4)}
+  dialog form{padding:18px}
+  dialog h3{margin:0 0 10px;font-size:17px}
+  .dlg-msg{margin:0 0 10px;font-size:14px;color:var(--mute);white-space:pre-line}
+  .fld{margin-bottom:12px}
+  .fld label{display:block;font-size:12.5px;font-weight:700;color:var(--mute);margin-bottom:4px}
+  .fld input,.fld textarea,.fld select{width:100%;font:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9d4ce;border-radius:9px;background:#fff;color:var(--ink)}
+  .fld textarea{min-height:130px;resize:vertical}
+  .fld .hint{font-size:12px;color:var(--mute);margin-top:4px;white-space:pre-line}
+  .dlg-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+  .dlg-actions .btn{padding:10px 16px;font-size:14px}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#1c2420;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:90vw;text-align:center}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  footer{max-width:880px;margin:6px auto;padding:0 12px;color:var(--mute);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <button class="back" id="backBtn" aria-label="목록으로">←</button>
+    <h1 id="hTitle">행사 체크리스트<small id="hSub">제주시농협 디지털소통팀</small></h1>
+    <div class="auth" id="auth"></div>
+  </div>
+  <div class="total" id="total">
+    <span id="sync" class="pill">연결 중…</span>
+    <div class="bar"><i id="totalBar"></i></div>
+    <b id="totalTxt">0 / 0</b>
+  </div>
+</header>
+
+<main>
+  <div id="setup"></div>
+  <div id="view"></div>
+</main>
+<footer>체크·편집은 등록된 직원 Google 계정으로 로그인했을 때만 저장됩니다. 보기는 로그인 없이 가능합니다. <span id="syncFoot" class="pill" style="background:#e5ece8;color:#4f5f57"></span></footer>
+
+<dialog id="dlg">
+  <form id="dlgForm">
+    <h3 id="dlgTitle"></h3>
+    <div id="dlgBody"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn line" id="dlgCancel">취소</button>
+      <button type="button" class="btn pri" id="dlgOk">확인</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="ndlg">
+  <div style="padding:18px">
+    <h3 id="nTitle"></h3>
+    <div id="nList"></div>
+    <div id="nForm">
+      <textarea id="nText" placeholder="공유할 내용을 적어 주세요 (예: 프린터 용지는 3층 창고에 있어요)"></textarea>
+      <div class="dlg-actions">
+        <button type="button" class="btn line" id="nClose">닫기</button>
+        <button type="button" class="btn line" id="nCancelEdit" style="display:none">수정 취소</button>
+        <button type="button" class="btn pri" id="nSave">메모 남기기</button>
+      </div>
+    </div>
+    <div class="dlg-actions" id="nReadOnly" style="display:none"><button type="button" class="btn line" id="nClose2">닫기</button></div>
+  </div>
+</dialog>
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, onSnapshot, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+/* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
+};
+const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
+const STAFF_COL = "checklistStaff";  // 편집 허용 이메일 (문서 ID = 소문자 이메일, admin:true면 영구 삭제 가능)
+
+/* ===== 기본 템플릿: 2026 AX 농업포럼 체험 부스 ===== */
+const TEMPLATE_AX = [
+  { title:"1. 사전 준비", date:"11/16 ~ 11/17",
+    note:"설치 전날인 11/17까지 시스템, 상품, 홍보물, 인원을 확정해야 11/18 리허설에서 막히지 않는다.",
+    groups:[
+      { name:"시스템·이벤트", items:[
+        "스탬프 앱 Firebase 설정: 익명·이메일 로그인 사용, 규칙 게시, 직원 계정과 staff 문서 등록, 키 입력 후 GitHub Pages 배포",
+        "규칙 시뮬레이터로 시험: 틀린 코드·만료 코드는 거부, 직원 로그인 후 코드 발급은 정상",
+        "참가자용 QR과 직원용(#staff) 주소 만들기, 참가자용 QR 출력",
+        "5.0초·농탑·미션 네컷 최종 점검 (사이니지 화면, 인생네컷 프린터, AI 점수 시스템)",
+        "이벤트별 ‘성공’ 기준 확정: 5.0초 허용 오차, 농탑 성공 조건, 미션 네컷 A등급 이상, 재도전 허용 여부",
+        "미션 네컷 프레임의 ‘커피쿠폰’ 문구를 스탬프·상품 안내 문구로 교체",
+        "농탑 시상 규모와 시상품, 학과 대항전 안내용 별도 QR 확정"]},
+      { name:"상품·홍보물", items:[
+        "위탁가공상품 품목, 1세트 구성, 수량 확정 (완주 35세트, 농탑 시상 8세트, 시음 상품별 100포)",
+        "상품·장비 행사장 운송 수배와 발송 일정 확정",
+        "행사장 시음·시식 허용 여부 확인, 일회용 컵·물 등 위생 준비",
+        "홍보물 제작: 롤업 배너 1개, 상품별 POP, 구매 안내 QR 카드 150장"]},
+      { name:"인원·행사장", items:[
+        "부스 인원 8명(+예비 1명) 명단과 역할 확정, 이동·숙박 확인",
+        "포럼 프로그램 시간표와 체험존 운영 시간 확인",
+        "11/18 설치 가능 시간, 전원·네트워크 사용 조건 확인"]}
+    ]},
+  { title:"2. 설치·리허설", date:"11/18 (수)",
+    note:"리허설에서 스탬프 앱까지 포함해 참가자 입장부터 상품 수령까지 전 과정을 한 번 돌려 보는 것이 목표다.",
+    groups:[
+      { name:"설치", items:[
+        "사이니지 설치와 화면 확인 (이벤트 ①·② 공용)",
+        "인생네컷 부스 장비 설치, 촬영·출력 시험 인화",
+        "상품 진열·시음 테이블, 롤업 배너, POP 배치",
+        "수령 데스크 위치와 안내 표지 설치",
+        "스탬프 앱 QR 안내물 부착 (입구와 각 이벤트 앞)"]},
+      { name:"리허설", items:[
+        "행사장 네트워크에서 속도·연결 확인 (참가자 폰이 액세스할 수 있는지 포함)",
+        "직원 기기 전부에서 로그인과 코드 발급 시험",
+        "참가자 역할로 3종 체험 → 코드 입력 → 스탬프 → 완주 → 수령 처리까지 전 과정 시연",
+        "농탑 온라인 참여(별도 QR)와 실시간 순위 확인",
+        "장애 시 대응 확인: 네트워크 끊김, 프린터 종이 부족, 화면 멈춤",
+        "부스 인원 역할별 브리핑 (성공 확인 후에만 코드 발급, 화면 노출 주의)",
+        "상품·소모품 수량 최종 확인 후 보관 장소 정하기"]}
+    ]},
+  { title:"3. 당일", date:"11/19 (목)",
+    note:"첫날 결과로 둘째 날 상품 수량을 조정하므로, 마감 집계를 빠뜨리지 않는다.",
+    groups:[
+      { name:"개시 전", items:[
+        "장비·네트워크 최종 점검, 사이니지·프린터 정상 동작 확인",
+        "직원 기기 로그인 확인, 참가자용 QR 접속 확인",
+        "상품 수량 확인과 진열, 시음용 물·컵 준비",
+        "부스 인원 브리핑: 역할, 성공 기준, 점심·휴식 교대 순서"]},
+      { name:"운영 중", items:[
+        "포럼 휴식 시간에 인원 집중 배치",
+        "대기줄과 동선 조정 (미션 네컷이 가장 오래 걸림)",
+        "시간대별로 직원 화면 현황 탭에서 카드 발급·완주 수 확인",
+        "스탬프 코드는 성공한 참가자 앞에서만 발급하고 한 명씩 처리",
+        "장애 발생 시 기록 (시각, 증상, 조치)"]},
+      { name:"마감", items:[
+        "완주·수령·시음 수량 집계",
+        "남은 상품과 부족 소모품 확인",
+        "시스템 점검, 내일 상품 수량 조정",
+        "내일 시상용 농탑 순위 중간 확인"]}
+    ]},
+  { title:"4. 마지막 날", date:"11/20 (금)",
+    note:"포럼 종료에 맞춰 농탑 시상을 끝내고 철수까지 마친다.",
+    groups:[{ name:"", items:[
+      "개시 전 장비·네트워크 점검, 부족한 상품·소모품 보충",
+      "이틀째 운영: 이벤트 3종과 스탬프 코드 발급, 상품 수령 처리",
+      "농탑 온라인 이벤트 종료 시점 확인, 최종 순위 확정 (개인전·학과 대항전)",
+      "시상품을 포럼 종료일 현장에서 지급",
+      "포럼 종료 후 참여자에게 스탬프 수령 마감 안내",
+      "장비·홍보물 철수와 정리, 잔여 상품 수량 기록",
+      "스탬프 앱 최종 현황(카드 발급·완주·수령 수) 화면 기록"]}]},
+  { title:"5. 종료 후", date:"",
+    note:"스탬프 앱 현황이 그대로 결과보고의 근거가 되므로, 행사 끝난 뒤 바로 숫자를 저장해 둔다.",
+    groups:[{ name:"", items:[
+      "카드 발급·이벤트별 성공·완주·수령 수를 현황 탭에서 기록",
+      "카카오톡채널·인스타그램 팔로워 증감 집계 (11/18 대비 11/20)",
+      "증정·시음 수량과 구매 QR 배부 수 정리",
+      "장애 기록과 개선점 정리 (다음 대외 행사 부스에 재활용)",
+      "사진·현장 스케치 SNS 게시",
+      "결과 보고 작성 (정량 목표 대비 실적, 정성 효과)",
+      "필요하면 Firebase 직원 계정·데이터 정리"]}]},
+  { title:"휴대 물품 목록", date:"", kind:"supply",
+    note:"행사장에서 급하게 구하기 어려운 것부터 챙긴다. 수량은 보완안 4장의 산정값을 기준으로 한다.",
+    groups:[
+      { name:"장비", items:[
+        "사이니지(필요 시 여분)와 연결 케이블·어댑터",
+        "인생네컷 촬영 PC, 카메라, 프린터",
+        "직원용 스마트폰 충전기·보조배터리",
+        "멀티탭·연장선, 모바일 핫스팟 또는 대체 네트워크"]},
+      { name:"소모품", items:[
+        "인화용지와 잉크(리허설·두 날 분량 + 예비)",
+        "일회용 컵, 물, 티슈, 쓰레기 봉투",
+        "테이프, 가위, 포장 리본, 포장박스 또는 천정 가방",
+        "부스 인원 명찰 또는 조끼"]},
+      { name:"상품·홍보물", items:[
+        "완주 증정 35세트, 농탑 시상 8세트 이상",
+        "시음·시식용 상품별 100포",
+        "롤업 배너, 상품별 POP, 구매 안내 QR 카드 150장",
+        "스탬프 앱 QR 안내물(입구·이벤트 앞·수령 데스크)",
+        "30초 설명 멘트 인쇄물"]}
+    ]}
+];
+
+/* ===== 유틸 ===== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = p => p + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 6);
+const clone = o => JSON.parse(JSON.stringify(o));
+const toD = v => (v && v.toDate) ? v.toDate() : (v instanceof Date ? v : null);
+const CONFIGURED = !String(firebaseConfig.apiKey).startsWith("YOUR_");
+
+function fmt(ts){
+  const d = toD(ts); if(!d) return "";
+  const p = new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false})
+    .formatToParts(d).reduce((o,x)=>(o[x.type]=x.value,o),{});
+  return `${p.month}/${p.day} ${p.hour}:${p.minute}`;
+}
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 2800);
+}
+function buildSections(tpl){
+  return tpl.map(s => ({ id:uid("s"), title:s.title, kind:s.kind||"task", date:s.date||"", note:s.note||"",
+    groups:s.groups.map(g => ({ id:uid("g"), name:g.name||"", items:g.items.map(t => ({ id:uid("i"), text:t })) })) }));
+}
+function parseOutline(text){
+  const secs = []; let sec = null, grp = null;
+  const newSec = t => {
+    let kind = "task"; const m = t.match(/^\[(?:준비물|supply)\]\s*/);
+    if(m){ kind = "supply"; t = t.slice(m[0].length); }
+    sec = { id:uid("s"), title:t, kind, date:"", note:"", groups:[] }; secs.push(sec); grp = null;
+  };
+  const newGrp = n => { if(!sec) newSec("체크리스트"); grp = { id:uid("g"), name:n, items:[] }; sec.groups.push(grp); };
+  for(const raw of String(text).split(/\r?\n/)){
+    const line = raw.trim(); if(!line) continue;
+    if(line.startsWith("## ")) newGrp(line.slice(3).trim());
+    else if(line.startsWith("# ")) newSec(line.slice(2).trim());
+    else {
+      const t = line.replace(/^(?:[-*•□☐]|\[[ xX]?\])\s*/, "").trim(); if(!t) continue;
+      if(!sec) newSec("체크리스트");
+      if(!grp) newGrp("");
+      if(sec.kind === "supply"){
+        const [name, qty, owner] = t.split("|").map(x => x.trim());
+        if(!name) continue;
+        grp.items.push({ id:uid("i"), text:name, ...(qty ? { qty } : {}), ...(owner ? { owner } : {}) });
+      } else grp.items.push({ id:uid("i"), text:t });
+    }
+  }
+  return secs;
+}
+function stats(l, kind){
+  let t = 0, d = 0;
+  (l.sections || []).forEach(s => { if(kind && (s.kind || "task") !== kind) return; s.groups.forEach(g => g.items.forEach(i => { t++; if(l.checks?.[i.id]?.checked) d++; })); });
+  return { t, d };
+}
+const timeOf = l => (toD(l.status==="trash" ? l.trashedAt : l.updatedAt) || new Date(0)).getTime();
+
+/* ===== 상태 ===== */
+let auth, db, user = null, canEdit = false, isAdmin = false;
+const lists = new Map();
+let loaded = false, tab = "active", route = { name:"home", id:null };
+let onlyOpen = false, editMode = false, ltab = "task", noteT = null, noteEdit = null;
+const closed = new Set();
+let syncInfo = { ok:false, fromCache:false, pending:false, err:"" };
+let unsub = null, subMode = null;
+
+/* ===== 대화상자 ===== */
+function openForm({ title, message, fields = [], ok = "확인", danger = false, after }){
+  return new Promise(res => {
+    const d = $("dlg"); let settled = false;
+    $("dlgTitle").textContent = title;
+    $("dlgBody").innerHTML = (message ? `<p class="dlg-msg">${esc(message)}</p>` : "") + fields.map((f, i) => {
+      const id = "f" + i;
+      let inp;
+      if(f.type === "textarea") inp = `<textarea id="${id}" placeholder="${esc(f.placeholder||"")}">${esc(f.value||"")}</textarea>`;
+      else if(f.type === "select") inp = `<select id="${id}">${f.options.map(o => `<option value="${esc(o.value)}" ${o.value===f.value?"selected":""}>${esc(o.label)}</option>`).join("")}</select>`;
+      else inp = `<input id="${id}" type="text" value="${esc(f.value||"")}" placeholder="${esc(f.placeholder||"")}" ${f.required?"required":""} autocomplete="off">`;
+      return `<div class="fld" data-key="${f.key}"><label for="${id}">${esc(f.label)}</label>${inp}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:""}</div>`;
+    }).join("");
+    const okBtn = $("dlgOk"); okBtn.textContent = ok; okBtn.className = "btn " + (danger ? "danger" : "pri");
+    const finish = v => { if(settled) return; settled = true; if(d.open) d.close(); res(v); };
+    const submit = () => {
+      const out = {};
+      fields.forEach((f, i) => { out[f.key] = $("f" + i).value; });
+      finish(out);
+    };
+    $("dlgOk").onclick = submit;
+    $("dlgForm").onsubmit = e => { e.preventDefault(); submit(); };
+    $("dlgBody").onkeydown = e => { if(e.key === "Enter" && e.target.tagName === "INPUT"){ e.preventDefault(); submit(); } };
+    $("dlgCancel").onclick = () => finish(null);
+    d.onclose = () => finish(null);
+    d.showModal();
+    if(after) after($("dlgBody"));
+    const first = $("dlgBody").querySelector("input,textarea,select"); if(first) first.focus();
+  });
+}
+const confirmBox = (title, message, ok, danger = true) => openForm({ title, message, ok, danger }).then(v => v !== null);
+
+/* ===== 인증/권한 ===== */
+function renderAuth(){
+  const a = $("auth");
+  if(!CONFIGURED){ a.innerHTML = ""; return; }
+  if(!user){
+    a.innerHTML = `<button class="btn" id="loginBtn">Google로 로그인</button>`;
+    $("loginBtn").onclick = login;
+  } else {
+    a.innerHTML = `<span>${esc(user.displayName || user.email)}</span>
+      <span class="badge ${canEdit?"":"ro"}">${canEdit?(isAdmin?"관리자":"편집 가능"):"보기 전용"}</span>
+      <button class="btn ghost" id="logoutBtn">로그아웃</button>`;
+    $("logoutBtn").onclick = () => signOut(auth);
+  }
+}
+async function login(){
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt:"select_account" });
+  try { await signInWithPopup(auth, provider); }
+  catch(e){
+    if(e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment"){
+      try { await signInWithRedirect(auth, provider); } catch(e2){ toast("로그인 실패: " + (e2.code||e2.message)); }
+    } else if(e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request"){
+      toast("로그인 실패: " + (e.code||e.message));
+    }
+  }
+}
+async function checkStaff(u){
+  const email = u.email.toLowerCase(), key = "ckStaff2:" + email;
+  try {
+    const s = await getDoc(doc(db, STAFF_COL, email));
+    const r = { ok:s.exists(), admin: s.exists() && s.data().admin === true };
+    try { localStorage.setItem(key, JSON.stringify(r)); } catch(_){}
+    return r;
+  } catch(e){
+    try { return JSON.parse(localStorage.getItem(key)) || { ok:false, admin:false }; } catch(_){ return { ok:false, admin:false }; }
+  }
+}
+
+/* ===== 구독 ===== */
+function subscribe(){
+  const mode = canEdit ? "all" : "public";
+  if(subMode === mode) return;
+  subMode = mode; if(unsub) unsub();
+  const col = collection(db, COL);
+  const q = mode === "all" ? col : query(col, where("status", "in", ["active", "archived"]));
+  unsub = onSnapshot(q, { includeMetadataChanges:true }, snap => {
+    lists.clear();
+    snap.forEach(d => {
+      const v = d.data({ serverTimestamps:"estimate" });
+      lists.set(d.id, { ...v, id:d.id, sections:v.sections || [], checks:v.checks || {}, notes:v.notes || {} });
+    });
+    loaded = true;
+    syncInfo = { ok:true, fromCache:snap.metadata.fromCache, pending:snap.metadata.hasPendingWrites, err:"" };
+    renderSync(); render();
+  }, err => {
+    syncInfo = { ok:false, fromCache:false, pending:false, err:err.code || err.message };
+    renderSync(); toast("불러오기 실패: " + syncInfo.err);
+  });
+}
+function renderSync(){
+  let txt;
+  if(!CONFIGURED) txt = "미연결 (설정 필요)";
+  else if(syncInfo.err) txt = "연결 오류";
+  else if(!syncInfo.ok) txt = "연결 중…";
+  else if(syncInfo.fromCache) txt = "오프라인 · 연결되면 자동 동기화";
+  else if(syncInfo.pending) txt = "저장 중…";
+  else txt = "실시간 연결됨";
+  $("sync").textContent = txt; $("syncFoot").textContent = txt;
+}
+
+/* ===== 라우팅 ===== */
+function readRoute(){
+  const m = location.hash.match(/^#\/c\/([^/?]+)/);
+  route = m ? { name:"list", id:decodeURIComponent(m[1]) } : { name:"home", id:null };
+  onlyOpen = false; editMode = false; ltab = "task"; closed.clear();
+  if(noteT){ noteT = null; noteEdit = null; if($("ndlg").open) $("ndlg").close(); }
+  window.scrollTo(0, 0);
+  render();
+}
+window.addEventListener("hashchange", readRoute);
+$("backBtn").onclick = () => { location.hash = "#/"; };
+
+/* ===== 쓰기 ===== */
+const ref = id => doc(db, COL, id);
+function guard(needActive = false, id = null){
+  if(!CONFIGURED){ toast("Firebase 설정 후 사용할 수 있어요"); return false; }
+  if(!user){ toast("Google 로그인 후 사용할 수 있어요"); return false; }
+  if(!canEdit){ toast("편집 권한이 없는 계정이에요"); return false; }
+  if(needActive && id && lists.get(id)?.status !== "active"){ toast("진행 중인 체크리스트만 수정할 수 있어요"); return false; }
+  return true;
+}
+const who = () => ({ by:user.email.toLowerCase(), byName:user.displayName || user.email });
+const fail = e => toast("저장 실패: " + (e.code || e.message));
+
+function toggleItem(id, itemId){
+  if(!guard(true, id)) return;
+  const cur = !!lists.get(id).checks[itemId]?.checked;
+  updateDoc(ref(id), { ["checks." + itemId]: { checked:!cur, ...who(), at:serverTimestamp() }, updatedAt:serverTimestamp() }).catch(fail);
+}
+function mutate(id, fn){
+  if(!guard(true, id)) return;
+  const secs = clone(lists.get(id).sections);
+  if(fn(secs) === false) return;
+  updateDoc(ref(id), { sections:secs, updatedAt:serverTimestamp() }).catch(fail);
+}
+function setStatus(id, status, extra = {}){
+  if(!guard()) return;
+  updateDoc(ref(id), { status, updatedAt:serverTimestamp(), ...extra }).catch(fail);
+}
+const move = (arr, i, dir) => { const j = i + dir; if(j < 0 || j >= arr.length) return false; [arr[i], arr[j]] = [arr[j], arr[i]]; return true; };
+
+async function archiveList(id){
+  if(!guard()) return;
+  if(await confirmBox("보관함으로 이동", "행사가 끝난 체크리스트를 보관함으로 옮깁니다. 보관된 체크리스트는 읽기 전용이며 언제든 다시 꺼낼 수 있어요.", "보관", false)){
+    setStatus(id, "archived", { archivedAt:serverTimestamp(), archivedBy:user.email.toLowerCase() });
+    toast("보관함으로 이동했어요");
+  }
+}
+function unarchiveList(id){ setStatus(id, "active"); toast("진행 중으로 되돌렸어요"); }
+async function trashList(id){
+  if(!guard()) return;
+  const l = lists.get(id);
+  if(await confirmBox("휴지통으로 이동", `‘${l.title}’을(를) 휴지통으로 옮길까요?\n휴지통에서 언제든 복원할 수 있어요.`, "휴지통으로", true)){
+    setStatus(id, "trash", { prevStatus:l.status, trashedAt:serverTimestamp(), trashedBy:user.email.toLowerCase() });
+    if(route.name === "list") location.hash = "#/";
+    toast("휴지통으로 이동했어요");
+  }
+}
+function restoreList(id){
+  const l = lists.get(id);
+  setStatus(id, l.prevStatus === "archived" ? "archived" : "active");
+  toast("복원했어요");
+}
+async function purgeList(id){
+  if(!guard()) return;
+  if(!isAdmin){ toast("영구 삭제는 관리자만 할 수 있어요"); return; }
+  const l = lists.get(id);
+  if(await confirmBox("영구 삭제", `‘${l.title}’을(를) 영구 삭제합니다.\n이 작업은 되돌릴 수 없어요.`, "영구 삭제", true)){
+    deleteDoc(ref(id)).then(() => toast("영구 삭제했어요")).catch(fail);
+    if(route.name === "list") location.hash = "#/";
+  }
+}
+async function emptyTrash(){
+  if(!guard()) return;
+  if(!isAdmin){ toast("휴지통 비우기는 관리자만 할 수 있어요"); return; }
+  const ts = [...lists.values()].filter(l => l.status === "trash");
+  if(!ts.length) return;
+  if(await confirmBox("휴지통 비우기", `휴지통의 체크리스트 ${ts.length}개를 영구 삭제합니다.\n이 작업은 되돌릴 수 없어요.`, "모두 삭제", true)){
+    Promise.all(ts.map(l => deleteDoc(ref(l.id)))).then(() => toast("휴지통을 비웠어요")).catch(fail);
+  }
+}
+
+async function createList(){
+  if(!guard()) return;
+  const others = [...lists.values()].filter(l => l.status !== "trash").sort((a, b) => timeOf(b) - timeOf(a));
+  const opts = [
+    { value:"blank", label:"빈 체크리스트" },
+    { value:"ax", label:"템플릿: 2026 AX 농업포럼 체험 부스" },
+    { value:"text", label:"텍스트로 붙여넣어 만들기" },
+    ...others.map(l => ({ value:"copy:" + l.id, label:`복사: ${l.title} (체크 초기화)` }))
+  ];
+  const v = await openForm({
+    title:"새 체크리스트", ok:"만들기",
+    fields:[
+      { key:"title", label:"이름", required:true, placeholder:"예) 2026 마라톤 홍보부스" },
+      { key:"dateText", label:"행사 일정 (선택)", placeholder:"예) 2026.12.05" },
+      { key:"src", label:"시작 방식", type:"select", options:opts, value:"blank" },
+      { key:"text", label:"항목 붙여넣기", type:"textarea",
+        placeholder:"# 사전 준비\n## 장비\n- 사이니지 점검\n# [준비물] 휴대 물품\n## 소모품\n- 인화용지 | 200장 | 김팀장",
+        hint:"# 구분  ## 소분류  - 항목\n# [준비물] 구분  → 준비물 탭으로 들어가요\n준비물 항목은 “이름 | 수량 | 담당”(수량·담당은 생략 가능)" }
+    ],
+    after: body => {
+      const sel = body.querySelector("#f2"), txt = body.querySelector('[data-key="text"]');
+      const sync = () => { txt.style.display = sel.value === "text" ? "" : "none"; };
+      sel.onchange = sync; sync();
+    }
+  });
+  if(!v) return;
+  const title = v.title.trim(); if(!title){ toast("이름을 입력해 주세요"); return; }
+  let sections = [];
+  if(v.src === "ax") sections = buildSections(TEMPLATE_AX);
+  else if(v.src === "text") sections = parseOutline(v.text);
+  else if(v.src.startsWith("copy:")){ const o = lists.get(v.src.slice(5)); if(o) sections = clone(o.sections); }
+  if(!sections.length) sections = [{ id:uid("s"), title:"체크리스트", date:"", note:"", groups:[{ id:uid("g"), name:"", items:[] }] }];
+  const r = doc(collection(db, COL));
+  setDoc(r, { title, dateText:v.dateText.trim(), status:"active", sections, checks:{},
+    createdBy:user.email.toLowerCase(), createdByName:user.displayName || user.email,
+    createdAt:serverTimestamp(), updatedAt:serverTimestamp() })
+    .catch(fail);
+  location.hash = "#/c/" + r.id;
+  toast("체크리스트를 만들었어요");
+}
+function cloneList(id){
+  const l = lists.get(id); if(!l || !guard()) return;
+  openForm({ title:"복제해서 새 체크리스트 만들기", ok:"복제", message:"항목 구성은 그대로 가져오고 체크 상태는 비웁니다.",
+    fields:[{ key:"title", label:"새 이름", value:l.title + " (복사본)", required:true }, { key:"dateText", label:"행사 일정 (선택)", value:"" }] })
+  .then(v => {
+    if(!v || !v.title.trim()) return;
+    const r = doc(collection(db, COL));
+    setDoc(r, { title:v.title.trim(), dateText:v.dateText.trim(), status:"active", sections:clone(l.sections), checks:{},
+      createdBy:user.email.toLowerCase(), createdByName:user.displayName || user.email,
+      createdAt:serverTimestamp(), updatedAt:serverTimestamp() }).catch(fail);
+    location.hash = "#/c/" + r.id;
+    toast("복제했어요");
+  });
+}
+
+/* ===== 내보내기 ===== */
+function rowsOf(l){
+  const out = [["유형","구분","소분류","항목","수량","담당","상태","체크한 사람","체크 시각","메모"]];
+  const nm = {};
+  Object.values(l.notes || {}).sort((a, b) => (toD(a.at)?.getTime() || 0) - (toD(b.at)?.getTime() || 0))
+    .forEach(n => { (nm[n.t] = nm[n.t] || []).push(`${n.byName || n.by || ""}: ${n.text.replace(/\s*\n\s*/g, " ")}`); });
+  l.sections.forEach(s => s.groups.forEach(g => g.items.forEach(i => {
+    const c = l.checks[i.id] || {};
+    out.push([s.kind === "supply" ? "준비물" : "할 일", s.title + (s.date ? ` (${s.date})` : ""), g.name, i.text, i.qty || "", i.owner || "",
+      c.checked ? "완료" : "", c.checked ? (c.byName || c.by || "") : "", c.checked ? fmt(c.at) : "", (nm[i.id] || []).join(" / ")]);
+  })));
+  (nm["_p"] || []).forEach(t => out.push(["공유 메모", "", "", t, "", "", "", "", "", ""]));
+  return out;
+}
+function stamp(){ return new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"short"}).format(new Date()).replace(/[-: ]/g,"").slice(0,12); }
+function exportCSV(l){
+  const csv = rowsOf(l).map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" }));
+  a.download = `${l.title.replace(/[\\/:*?"<>|]/g,"")}_${stamp()}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+async function copyTSV(l){
+  const tsv = rowsOf(l).map(r => r.map(c => String(c).replace(/[\t\r\n]+/g," ")).join("\t")).join("\n");
+  try { await navigator.clipboard.writeText(tsv); toast("복사했어요. 구글 시트에 붙여넣기 하세요"); }
+  catch(_){ toast("복사에 실패했어요. CSV 내려받기를 이용해 주세요"); }
+}
+
+/* ===== 화면 ===== */
+function render(){
+  renderAuth(); renderSetup();
+  const isList = route.name === "list";
+  $("backBtn").style.display = isList ? "block" : "none";
+  $("total").style.display = isList ? "flex" : "none";
+  if(isList) renderList(); else renderHome();
+  renderNotes();
+}
+function renderSetup(){
+  const el = $("setup");
+  if(!CONFIGURED) el.innerHTML = `<div class="notice"><b>Firebase 설정이 아직 없어요.</b> 파일 상단의 <code>firebaseConfig</code>에 스탬프 앱과 같은 프로젝트 값을 붙여 넣으면 실시간 공유가 켜집니다. 지금은 저장되지 않는 미리보기예요.</div>`;
+  else if(user && !canEdit) el.innerHTML = `<div class="notice"><b>${esc(user.email)}</b>은(는) 편집 권한이 없어요. 관리자에게 이 이메일 등록을 요청하세요. 지금은 보기만 가능합니다.</div>`;
+  else el.innerHTML = "";
+}
+
+function renderHome(){
+  $("hTitle").firstChild.textContent = "행사 체크리스트";
+  $("hSub").textContent = "제주시농협 디지털소통팀";
+  const all = [...lists.values()];
+  const by = s => all.filter(l => l.status === s).sort((a, b) => timeOf(b) - timeOf(a));
+  const counts = { active:by("active").length, archived:by("archived").length, trash:by("trash").length };
+  if(tab === "trash" && !canEdit) tab = "active";
+  const tabBtn = (k, label) => `<button class="tab ${tab===k?"on":""}" data-act="tab" data-tab="${k}">${label} ${counts[k]}</button>`;
+  let html = `<div class="tabs">${tabBtn("active","진행 중")}${tabBtn("archived","보관함")}${canEdit?tabBtn("trash","휴지통"):""}<span class="sp"></span>
+    ${canEdit ? `<button class="btn pri" data-act="new">＋ 새 체크리스트</button>` : (CONFIGURED && !user ? `<span style="font-size:12.5px;color:var(--mute)">만들려면 로그인하세요</span>` : "")}</div>`;
+  if(tab === "trash" && canEdit){
+    html += `<div class="notice">휴지통의 체크리스트는 복원할 수 있어요. 영구 삭제는 관리자만 가능하며, 자동으로 비워지지는 않습니다.
+      ${isAdmin && counts.trash ? `<div class="row"><button class="btn dl sm" data-act="empty-trash">휴지통 비우기</button></div>` : ""}</div>`;
+  }
+  const arr = by(tab);
+  if(!loaded && CONFIGURED) html += `<div class="empty">불러오는 중…</div>`;
+  else if(!arr.length) html += `<div class="empty">${tab==="active"?"진행 중인 체크리스트가 없어요.":tab==="archived"?"보관된 체크리스트가 없어요.":"휴지통이 비어 있어요."}</div>`;
+  else html += `<div class="cards">` + arr.map(l => {
+    const { t, d } = stats(l), pct = t ? Math.round(d / t * 100) : 0;
+    const sT = stats(l, "task"), sS = stats(l, "supply");
+    const detail = sS.t ? `할 일 ${sT.d}/${sT.t} · 준비물 ${sS.d}/${sS.t}` : `${d} / ${t} 완료`;
+    const when = tab === "trash" ? `삭제 ${fmt(l.trashedAt)}` : tab === "archived" ? `보관 ${fmt(l.archivedAt)}` : `수정 ${fmt(l.updatedAt)}`;
+    let acts = "";
+    if(canEdit){
+      if(tab === "active") acts = `<button class="btn line sm" data-act="archive" data-id="${l.id}">보관</button><button class="btn dl sm" data-act="trash" data-id="${l.id}">삭제</button>`;
+      else if(tab === "archived") acts = `<button class="btn line sm" data-act="unarchive" data-id="${l.id}">보관 해제</button><button class="btn dl sm" data-act="trash" data-id="${l.id}">삭제</button>`;
+      else acts = `<button class="btn line sm" data-act="restore" data-id="${l.id}">복원</button>${isAdmin?`<button class="btn dl sm" data-act="purge" data-id="${l.id}">영구 삭제</button>`:""}`;
+    }
+    return `<div class="card" data-open="${l.id}"><div class="c-top"><h3>${esc(l.title)}</h3>${l.dateText?`<span class="c-date">${esc(l.dateText)}</span>`:""}</div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="c-meta">${esc(detail)} · ${esc(when)}</div>${acts?`<div class="c-act">${acts}</div>`:""}</div>`;
+  }).join("") + `</div>`;
+  $("view").innerHTML = html;
+}
+
+function renderList(){
+  const l = lists.get(route.id);
+  if(!l){
+    $("hTitle").firstChild.textContent = "체크리스트";
+    $("hSub").textContent = "";
+    $("view").innerHTML = `<div class="empty">${loaded || !CONFIGURED ? "체크리스트를 찾을 수 없거나 볼 권한이 없어요." : "불러오는 중…"}<br><br><button class="btn line" data-act="home">목록으로</button></div>`;
+    $("totalBar").style.width = "0"; $("totalTxt").textContent = "0 / 0";
+    return;
+  }
+  $("hTitle").firstChild.textContent = l.title;
+  $("hSub").textContent = [l.dateText, l.status==="archived"?"보관됨":l.status==="trash"?"휴지통":""].filter(Boolean).join(" · ") || "진행 중";
+  const { t, d } = stats(l);
+  $("totalBar").style.width = (t ? d / t * 100 : 0) + "%";
+  $("totalTxt").textContent = `${d} / ${t}`;
+  const canCheck = canEdit && l.status === "active";
+  const editing = editMode && canCheck;
+  const notesBy = {};
+  Object.entries(l.notes || {}).forEach(([id, n]) => { (notesBy[n.t] = notesBy[n.t] || []).push({ id, ...n }); });
+  Object.values(notesBy).forEach(a => a.sort((x, y) => (toD(x.at)?.getTime() || 0) - (toD(y.at)?.getTime() || 0)));
+  let html = "";
+  if(l.status === "archived") html += `<div class="notice">보관된 체크리스트예요. 읽기 전용입니다.${canEdit?`<div class="row"><button class="btn line sm" data-act="unarchive" data-id="${l.id}">보관 해제</button></div>`:""}</div>`;
+  if(l.status === "trash") html += `<div class="notice red">휴지통에 있는 체크리스트예요.${canEdit?`<div class="row"><button class="btn line sm" data-act="restore" data-id="${l.id}">복원</button>${isAdmin?`<button class="btn dl sm" data-act="purge" data-id="${l.id}">영구 삭제</button>`:""}</div>`:""}</div>`;
+  if(l.status === "active" && CONFIGURED && !canEdit) html += `<div class="notice">체크하려면 등록된 직원 Google 계정으로 로그인하세요.</div>`;
+  const sT = stats(l, "task"), sS = stats(l, "supply");
+  const pn = notesBy["_p"] || [];
+  if(pn.length || canCheck){
+    html += `<div class="pmemo"><div class="pm-h"><b>📌 공유 메모</b><button class="btn line sm" data-act="note-open" data-t="_p">${pn.length ? `전체 보기 (${pn.length})` : "＋ 메모 남기기"}</button></div>
+      ${pn.slice(-2).reverse().map(n => `<div class="pm-n"><b>${esc(n.byName || n.by || "")}</b><span>${esc(fmt(n.at))}</span><div>${esc(n.text)}</div></div>`).join("")}</div>`;
+  }
+  html += `<div class="tabs"><button class="tab ${ltab==="task"?"on":""}" data-act="ltab" data-k="task">할 일 ${sT.d}/${sT.t}</button>
+    <button class="tab ${ltab==="supply"?"on":""}" data-act="ltab" data-k="supply">준비물 ${sS.d}/${sS.t}</button></div>`;
+  html += `<div class="tools">
+    <button class="btn line" data-act="flt">${onlyOpen?"전체 보기":"미완료만 보기"}</button>
+    <button class="btn line" data-act="fold">${closed.size ? "모두 펼치기" : "모두 접기"}</button>
+    <button class="btn line" data-act="csv">CSV 내려받기</button>
+    <button class="btn line" data-act="tsv">구글 시트용 복사</button>
+    ${canEdit && l.status==="active" ? `<button class="btn ${editing?"pri":"line"}" data-act="edit">${editing?"편집 끝내기":"✎ 편집"}</button>` : ""}
+    ${canEdit && l.status!=="trash" ? `<button class="btn line" data-act="clone">복제</button>` : ""}
+    ${canEdit && l.status==="active" ? `<button class="btn line" data-act="archive" data-id="${l.id}">보관</button>` : ""}
+    ${canEdit && l.status!=="trash" ? `<button class="btn dl" data-act="trash" data-id="${l.id}">삭제</button>` : ""}
+  </div>`;
+  if(editing) html += `<div class="tools"><button class="btn line sm" data-act="list-rename">이름·일정 수정</button></div>`;
+
+  const ib = (act, label, attrs, cls = "") => `<button class="ib ${cls}" data-act="${act}" ${attrs} title="${esc(label)}">${label}</button>`;
+  let shownSecs = 0;
+  l.sections.forEach((s, si) => {
+    if((s.kind || "task") !== ltab) return;
+    shownSecs++;
+    const isSup = ltab === "supply";
+    const its = s.groups.flatMap(g => g.items);
+    const done = its.filter(i => l.checks[i.id]?.checked).length, pct = its.length ? Math.round(done / its.length * 100) : 0;
+    const sa = `data-s="${s.id}"`;
+    let body = "", shown = 0;
+    s.groups.forEach((g, gi) => {
+      const ga = `${sa} data-g="${g.id}"`;
+      const lis = g.items.filter(i => editing || !(onlyOpen && l.checks[i.id]?.checked)).map(i => {
+        const c = l.checks[i.id] || {};
+        const sup = isSup && (i.qty || i.owner) ? `<span class="sup">${i.qty?`<b>${esc(i.qty)}</b>`:""}${i.qty&&i.owner?" · ":""}${i.owner?`담당 ${esc(i.owner)}`:""}</span>` : "";
+        const nl = notesBy[i.id] || [], last = nl[nl.length - 1];
+        const memo = last ? `<span class="memo"><b>${esc(last.byName || last.by || "")}</b> ${esc(last.text.replace(/\s*\n\s*/g, " ").slice(0, 60))}${last.text.length > 60 ? "…" : ""}</span>` : "";
+        const nb = (nl.length || canCheck) ? `<button class="note-btn ${nl.length ? "has" : ""}" data-act="note-open" data-t="${i.id}" title="메모">💬${nl.length ? " " + nl.length : ""}</button>` : "";
+        const meta = c.checked ? `<span class="meta">✓ ${esc(c.byName || c.by || "")} · ${esc(fmt(c.at))}</span>` : "";
+        if(editing) return `<li class="item edit"><span class="txt">${esc(i.text)}${sup}</span><span class="ctl">
+          ${ib("item-up","↑",`${ga} data-i="${i.id}"`)}${ib("item-down","↓",`${ga} data-i="${i.id}"`)}${ib("item-edit","✎",`${ga} data-i="${i.id}"`)}${ib("item-del","✕",`${ga} data-i="${i.id}"`,"del")}</span></li>`;
+        return `<li class="item ${c.checked?"done":""} ${canCheck?"":"lock"}" data-item="${i.id}"><label>
+          <input type="checkbox" ${c.checked?"checked":""} ${canCheck?"":"tabindex=\"-1\""}>
+          <span class="txt"><span class="t">${esc(i.text)}</span>${sup}${meta}${memo}</span></label>${nb}</li>`;
+      });
+      if(editing){
+        body += `<div class="grp"><span class="nm">${esc(g.name || "(이름 없는 그룹)")}</span><span class="ctl">
+          ${ib("grp-up","↑",ga)}${ib("grp-down","↓",ga)}${ib("grp-edit","✎",ga)}${ib("grp-del","✕",ga,"del")}</span></div>
+          <ul>${lis.join("")}</ul><div class="add-row">${ib("item-add","＋ 항목 추가",ga)}</div>`;
+      } else if(lis.length){
+        shown += lis.length;
+        body += (g.name ? `<div class="grp"><span class="nm">${esc(g.name)}</span></div>` : "") + `<ul>${lis.join("")}</ul>`;
+      }
+    });
+    if(!editing && !shown) body = `<div class="empty" style="padding:14px">${onlyOpen && its.length ? "남은 항목이 없어요 🎉" : "항목이 없어요"}</div>`;
+    if(editing) body += `<div class="add-row">${ib("grp-add","＋ 소분류 추가",sa)}</div>`;
+    const ctl = editing ? `<span class="ctl">${ib("sec-up","↑",sa)}${ib("sec-down","↓",sa)}${ib("sec-edit","✎",sa)}${ib("sec-del","✕",sa,"del")}</span>` : "";
+    html += `<section class="sec ${closed.has(s.id)?"closed":""}" data-sec="${s.id}">
+      <div class="sec-h" data-act="sec-fold" ${sa}><span class="chev">▼</span>
+        <h2>${esc(s.title)}${s.date?`<span>${esc(s.date)}</span>`:""}</h2>${ctl}<span class="cnt">${done} / ${its.length}</span></div>
+      <div class="sec-bar"><i style="width:${pct}%"></i></div>
+      <div class="sec-b">${s.note?`<p class="sec-note">${esc(s.note)}</p>`:""}${body}</div></section>`;
+  });
+  if(editing) html += `<div class="add-row" style="padding:0">${ib("sec-add", ltab==="supply" ? "＋ 준비물 구분 추가" : "＋ 구분(섹션) 추가", "")}</div>`;
+  if(!shownSecs && !editing){
+    html += ltab === "supply"
+      ? `<div class="empty">이 프로젝트에는 준비물 목록이 아직 없어요.${canCheck?`<br><br><button class="btn pri" data-act="supply-init">＋ 준비물 목록 만들기</button>`:""}</div>`
+      : `<div class="empty">항목이 없어요.</div>`;
+  }
+  $("view").innerHTML = html;
+}
+
+/* ===== 메모 ===== */
+function notesOf(l, target){
+  return Object.entries(l.notes || {}).filter(([, n]) => n.t === target).map(([id, n]) => ({ id, ...n }))
+    .sort((a, b) => (toD(a.at)?.getTime() || 0) - (toD(b.at)?.getTime() || 0));
+}
+function noteTitle(l, t){
+  if(t === "_p") return "📌 공유 메모";
+  for(const s of l.sections) for(const g of s.groups) for(const i of g.items) if(i.id === t) return "💬 " + i.text;
+  return "💬 메모";
+}
+function openNotes(target){
+  const l = lists.get(route.id); if(!l) return;
+  noteT = target; noteEdit = null; $("nText").value = "";
+  if(!$("ndlg").open) $("ndlg").showModal();
+  renderNotes();
+}
+function renderNotes(){
+  if(!noteT || !$("ndlg").open) return;
+  const l = lists.get(route.id); if(!l){ $("ndlg").close(); return; }
+  const canWrite = canEdit && l.status === "active";
+  const me = user ? user.email.toLowerCase() : "";
+  $("nTitle").textContent = noteTitle(l, noteT);
+  const ns = notesOf(l, noteT);
+  $("nList").innerHTML = ns.length ? ns.map(n => {
+    const mine = canWrite && (n.by === me || isAdmin);
+    return `<div class="nt"><div class="nt-h"><b>${esc(n.byName || n.by || "")}</b><span>${esc(fmt(n.at))}${n.edited ? " · 수정됨" : ""}</span></div>
+      <div class="nt-b">${esc(n.text)}</div>${mine ? `<div class="nt-a"><button class="btn line sm" data-nact="edit" data-n="${n.id}">수정</button><button class="btn dl sm" data-nact="del" data-n="${n.id}">삭제</button></div>` : ""}</div>`;
+  }).join("") : `<div class="empty" style="padding:14px">아직 메모가 없어요.</div>`;
+  $("nForm").style.display = canWrite ? "" : "none";
+  $("nReadOnly").style.display = canWrite ? "none" : "flex";
+  $("nSave").textContent = noteEdit ? "수정 저장" : "메모 남기기";
+  $("nCancelEdit").style.display = noteEdit ? "" : "none";
+  $("nList").scrollTop = $("nList").scrollHeight;
+}
+function addNote(listId, target, text){
+  if(!guard(true, listId)) return;
+  updateDoc(ref(listId), { ["notes." + uid("n")]: { t:target, text, ...who(), at:serverTimestamp() }, updatedAt:serverTimestamp() }).catch(fail);
+}
+$("nSave").onclick = () => {
+  const text = $("nText").value.trim(); if(!text){ toast("내용을 입력해 주세요"); return; }
+  const l = lists.get(route.id); if(!l) return;
+  if(noteEdit){
+    if(guard(true, l.id)) updateDoc(ref(l.id), { ["notes." + noteEdit + ".text"]: text, ["notes." + noteEdit + ".edited"]: true, updatedAt:serverTimestamp() }).catch(fail);
+    noteEdit = null;
+  } else addNote(l.id, noteT, text);
+  $("nText").value = ""; renderNotes();
+};
+$("nCancelEdit").onclick = () => { noteEdit = null; $("nText").value = ""; renderNotes(); };
+const closeNotes = () => { if($("ndlg").open) $("ndlg").close(); };
+$("nClose").onclick = closeNotes; $("nClose2").onclick = closeNotes;
+$("ndlg").onclose = () => { noteT = null; noteEdit = null; };
+$("nList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-nact]"); if(!b) return;
+  const l = lists.get(route.id); if(!l) return;
+  const n = (l.notes || {})[b.dataset.n]; if(!n) return;
+  if(b.dataset.nact === "edit"){ noteEdit = b.dataset.n; $("nText").value = n.text; renderNotes(); $("nText").focus(); }
+  else if(await confirmBox("메모 삭제", "이 메모를 삭제할까요?", "삭제")){
+    if(guard(true, l.id)) updateDoc(ref(l.id), { ["notes." + b.dataset.n]: deleteField(), updatedAt:serverTimestamp() }).catch(fail);
+  }
+});
+
+/* ===== 클릭 처리 ===== */
+const findSec = (secs, id) => secs.find(s => s.id === id);
+const findGrp = (secs, sid, gid) => findSec(secs, sid)?.groups.find(g => g.id === gid);
+
+async function handleAct(el){
+  const act = el.dataset.act, id = el.dataset.id || route.id;
+  const l = lists.get(route.id);
+  const S = el.dataset.s, G = el.dataset.g, I = el.dataset.i;
+  switch(act){
+    case "tab": tab = el.dataset.tab; render(); return;
+    case "ltab": ltab = el.dataset.k; render(); return;
+    case "note-open": return openNotes(el.dataset.t);
+    case "supply-init":
+      if(!guard(true, l.id)) return;
+      editMode = true;
+      return mutate(l.id, secs => { secs.push({ id:uid("s"), title:"준비물", kind:"supply", date:"", note:"", groups:[{ id:uid("g"), name:"", items:[] }] }); });
+    case "home": location.hash = "#/"; return;
+    case "new": return createList();
+    case "archive": return archiveList(id);
+    case "unarchive": return unarchiveList(id);
+    case "trash": return trashList(id);
+    case "restore": return restoreList(id);
+    case "purge": return purgeList(id);
+    case "empty-trash": return emptyTrash();
+    case "flt": onlyOpen = !onlyOpen; return render();
+    case "fold": if(closed.size) closed.clear(); else l.sections.forEach(s => closed.add(s.id)); return render();
+    case "csv": return l && exportCSV(l);
+    case "tsv": return l && copyTSV(l);
+    case "edit": editMode = !editMode; return render();
+    case "clone": return cloneList(route.id);
+    case "sec-fold": closed.has(S) ? closed.delete(S) : closed.add(S); return render();
+    case "list-rename": {
+      const v = await openForm({ title:"이름·일정 수정", fields:[{ key:"title", label:"이름", value:l.title, required:true }, { key:"dateText", label:"행사 일정", value:l.dateText || "" }] });
+      if(v && v.title.trim() && guard(true, l.id)) updateDoc(ref(l.id), { title:v.title.trim(), dateText:v.dateText.trim(), updatedAt:serverTimestamp() }).catch(fail);
+      return;
+    }
+    case "sec-add": {
+      const kind = ltab;
+      const v = await openForm({ title: kind === "supply" ? "준비물 구분 추가" : "구분(섹션) 추가", fields:[{ key:"title", label:"구분 이름", required:true, placeholder: kind === "supply" ? "예) 장비 / 소모품" : "예) 7. 정산" }, { key:"date", label:"일정 (선택)" }] });
+      if(v && v.title.trim()) mutate(l.id, secs => { secs.push({ id:uid("s"), title:v.title.trim(), kind, date:v.date.trim(), note:"", groups:[{ id:uid("g"), name:"", items:[] }] }); });
+      return;
+    }
+    case "sec-edit": {
+      const s = findSec(l.sections, S);
+      const v = await openForm({ title:"구분 수정", fields:[{ key:"title", label:"구분 이름", value:s.title, required:true }, { key:"date", label:"일정 (선택)", value:s.date || "" }, { key:"note", label:"설명 (선택)", type:"textarea", value:s.note || "" }] });
+      if(v && v.title.trim()) mutate(l.id, secs => { const x = findSec(secs, S); x.title = v.title.trim(); x.date = v.date.trim(); x.note = v.note.trim(); });
+      return;
+    }
+    case "sec-up": case "sec-down": return mutate(l.id, secs => move(secs, secs.findIndex(s => s.id === S), act === "sec-up" ? -1 : 1));
+    case "sec-del": {
+      const s = findSec(l.sections, S);
+      if(await confirmBox("구분 삭제", `‘${s.title}’과(와) 안의 항목을 모두 삭제할까요?`, "삭제")) mutate(l.id, secs => { secs.splice(secs.findIndex(x => x.id === S), 1); });
+      return;
+    }
+    case "grp-add": {
+      const v = await openForm({ title:"소분류 추가", fields:[{ key:"name", label:"소분류 이름", required:true, placeholder:"예) 장비" }] });
+      if(v && v.name.trim()) mutate(l.id, secs => { findSec(secs, S).groups.push({ id:uid("g"), name:v.name.trim(), items:[] }); });
+      return;
+    }
+    case "grp-edit": {
+      const g = findGrp(l.sections, S, G);
+      const v = await openForm({ title:"소분류 이름 수정", fields:[{ key:"name", label:"소분류 이름 (비우면 헤더 없음)", value:g.name }] });
+      if(v) mutate(l.id, secs => { findGrp(secs, S, G).name = v.name.trim(); });
+      return;
+    }
+    case "grp-up": case "grp-down": return mutate(l.id, secs => { const gs = findSec(secs, S).groups; return move(gs, gs.findIndex(g => g.id === G), act === "grp-up" ? -1 : 1); });
+    case "grp-del": {
+      const g = findGrp(l.sections, S, G);
+      if(await confirmBox("소분류 삭제", `‘${g.name || "이름 없는 그룹"}’과(와) 안의 항목 ${g.items.length}개를 삭제할까요?`, "삭제")) mutate(l.id, secs => { const gs = findSec(secs, S).groups; gs.splice(gs.findIndex(x => x.id === G), 1); });
+      return;
+    }
+    case "item-add": {
+      const sup = findSec(l.sections, S).kind === "supply";
+      const v = await openForm({ title: sup ? "준비물 추가" : "항목 추가", ok:"추가",
+        fields:[{ key:"text", label: sup ? "준비물 (한 줄에 하나: 이름 | 수량 | 담당)" : "항목 (여러 줄이면 한 줄에 하나씩)", type:"textarea",
+          placeholder: sup ? "인화용지 | 200장 | 김팀장\n멀티탭 | 3개\n명찰" : "", hint: sup ? "수량과 담당은 생략할 수 있어요." : "" }] });
+      if(v){
+        const lines = v.text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+        const items = lines.map(t => {
+          if(!sup) return { id:uid("i"), text:t };
+          const [name, qty, owner] = t.split("|").map(x => x.trim());
+          return name ? { id:uid("i"), text:name, ...(qty ? { qty } : {}), ...(owner ? { owner } : {}) } : null;
+        }).filter(Boolean);
+        if(items.length) mutate(l.id, secs => { findGrp(secs, S, G).items.push(...items); });
+      }
+      return;
+    }
+    case "item-edit": {
+      const sup = findSec(l.sections, S).kind === "supply";
+      const it = findGrp(l.sections, S, G).items.find(x => x.id === I);
+      const fields = [{ key:"text", label: sup ? "준비물" : "항목", type:"textarea", value:it.text }];
+      if(sup) fields.push({ key:"qty", label:"수량 (선택)", value:it.qty || "", placeholder:"예) 35세트" }, { key:"owner", label:"담당 (선택)", value:it.owner || "" });
+      const v = await openForm({ title: sup ? "준비물 수정" : "항목 수정", fields });
+      if(v && v.text.trim()) mutate(l.id, secs => {
+        const x = findGrp(secs, S, G).items.find(y => y.id === I);
+        x.text = v.text.trim().replace(/\s*\n\s*/g, " ");
+        if(sup){ const q = (v.qty || "").trim(), o = (v.owner || "").trim(); if(q) x.qty = q; else delete x.qty; if(o) x.owner = o; else delete x.owner; }
+      });
+      return;
+    }
+    case "item-up": case "item-down": return mutate(l.id, secs => { const its = findGrp(secs, S, G).items; return move(its, its.findIndex(x => x.id === I), act === "item-up" ? -1 : 1); });
+    case "item-del": {
+      const it = findGrp(l.sections, S, G).items.find(x => x.id === I);
+      if(await confirmBox("항목 삭제", `‘${it.text}’을(를) 삭제할까요?`, "삭제")) mutate(l.id, secs => { const its = findGrp(secs, S, G).items; its.splice(its.findIndex(x => x.id === I), 1); });
+      return;
+    }
+  }
+}
+
+$("view").addEventListener("click", e => {
+  const a = e.target.closest("[data-act]");
+  if(a){ e.preventDefault(); handleAct(a); return; }
+  const li = e.target.closest("li.item[data-item]");
+  if(li){
+    e.preventDefault();
+    if(!CONFIGURED){ toast("Firebase 설정 후 사용할 수 있어요"); return; }
+    const l = lists.get(route.id);
+    if(l && l.status !== "active"){ toast(l.status === "archived" ? "보관된 체크리스트는 수정할 수 없어요" : "휴지통의 체크리스트예요"); return; }
+    toggleItem(route.id, li.dataset.item); return;
+  }
+  const c = e.target.closest("[data-open]");
+  if(c) location.hash = "#/c/" + c.dataset.open;
+});
+
+/* ===== 시작 ===== */
+renderSync();
+if(!CONFIGURED){
+  lists.set("demo", { id:"demo", title:"2026 AX 농업포럼 체험 부스 (미리보기)", dateText:"2026.11.18~20", status:"active", sections:buildSections(TEMPLATE_AX), checks:{} });
+  loaded = true;
+  readRoute();
+} else {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  getRedirectResult(auth).catch(() => {});
+  readRoute();
+  subscribe();
+  onAuthStateChanged(auth, async u => {
+    user = (u && !u.isAnonymous && u.email) ? u : null;
+    if(user){ const r = await checkStaff(user); canEdit = r.ok; isAdmin = r.ok && r.admin; }
+    else { canEdit = false; isAdmin = false; }
+    subscribe(); render();
+  });
+}
+</script>
+</body>
+</html>
