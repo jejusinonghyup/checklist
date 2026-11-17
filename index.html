@@ -75,7 +75,15 @@
   #tpList{max-height:52vh;overflow:auto;margin-bottom:10px}
   .btn.pri.sm{background:var(--g);color:#fff;border:0}
   .empty{padding:28px 14px;color:var(--mute);font-size:14px;text-align:center}
-  .tools{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
+  .tools{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin:4px 0 8px;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tools::-webkit-scrollbar{display:none}
+  .tools .btn{flex:0 0 auto;white-space:nowrap}
+  .stick{position:sticky;top:var(--hh,0px);z-index:15;background:var(--bg);padding-top:6px;margin:0 -12px 6px;padding-left:12px;padding-right:12px;box-shadow:0 6px 8px -6px rgba(0,0,0,.18)}
+  .stick .pmemo{margin-bottom:8px;padding:8px 10px}
+  .stick .pm-n{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;padding-top:4px}
+  .stick .pm-n div{display:inline}
+  .stick .tabs{margin-bottom:6px;flex-wrap:nowrap;overflow-x:auto}
+  .stick .tab{flex:0 0 auto}
   section.sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
   .sec-h{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none;background:var(--g-bg)}
   .sec-h h2{font-size:16px;margin:0;flex:1;min-width:0}
@@ -246,12 +254,10 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 /* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
 const firebaseConfig = {
-  apiKey: "AIzaSyCwuWD8Zks7PDppvkU1vlCXQlvDFA9_PJs",
-  authDomain: "checklist-f6795.firebaseapp.com",
-  projectId: "checklist-f6795",
-  storageBucket: "checklist-f6795.firebasestorage.app",
-  messagingSenderId: "901255037556",
-  appId: "1:901255037556:web:55953089f92bcb788ec721"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
 };
 const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
 const TPL_COL = "checklistTemplates"; // 저장된 템플릿 (구조만, 체크 없음)
@@ -841,9 +847,11 @@ function renderList(){
   if(l.status === "active" && CONFIGURED && !canEdit) html += `<div class="notice">체크하려면 등록된 직원 Google 계정으로 로그인하세요.</div>`;
   const sT = stats(l, "task"), sS = stats(l, "supply");
   const pn = notesBy["_p"] || [];
+  html += `<div class="stick">`;
   if(pn.length || canCheck){
+    const ln = pn[pn.length - 1];
     html += `<div class="pmemo"><div class="pm-h"><b>📌 공유 메모</b><button class="btn line sm" data-act="note-open" data-t="_p">${pn.length ? `전체 보기 (${pn.length})` : "＋ 메모 남기기"}</button></div>
-      ${pn.slice(-2).reverse().map(n => `<div class="pm-n"><b>${esc(n.byName || n.by || "")}</b><span>${esc(fmt(n.at))}</span><div>${esc(n.text)}</div></div>`).join("")}</div>`;
+      ${ln ? `<div class="pm-n"><b>${esc(ln.byName || ln.by || "")}</b><span>${esc(fmt(ln.at))}</span> ${esc(ln.text.replace(/\s*\n\s*/g, " "))}</div>` : ""}</div>`;
   }
   html += `<div class="tabs"><button class="tab ${ltab==="task"?"on":""}" data-act="ltab" data-k="task">할 일 ${sT.d}/${sT.t}</button>
     <button class="tab ${ltab==="supply"?"on":""}" data-act="ltab" data-k="supply">준비물 ${sS.d}/${sS.t}</button>
@@ -859,6 +867,7 @@ function renderList(){
     ${canEdit && l.status!=="trash" ? `<button class="btn dl" data-act="trash" data-id="${l.id}">삭제</button>` : ""}
   </div>`;
   if(editing) html += `<div class="tools"><button class="btn line sm" data-act="list-rename">이름·일정 수정</button></div>`;
+  html += `</div>`;
 
   if(ltab === "roster"){ $("view").innerHTML = html + renderRoster(l, canCheck); return; }
   const ib = (act, label, attrs, cls = "") => `<button class="ib ${cls}" data-act="${act}" ${attrs} title="${esc(label)}">${label}</button>`;
@@ -1480,6 +1489,12 @@ $("view").addEventListener("click", e => {
   const c = e.target.closest("[data-open]");
   if(c) location.hash = "#/c/" + c.dataset.open;
 });
+
+/* 상단 고정 영역(헤더) 높이를 CSS 변수로 알려 줘서 그 아래에 탭·도구가 붙도록 */
+const syncHH = () => { const h = document.querySelector("header"); if(h) document.documentElement.style.setProperty("--hh", h.offsetHeight + "px"); };
+window.addEventListener("resize", syncHH);
+if(window.ResizeObserver) new ResizeObserver(syncHH).observe(document.querySelector("header"));
+syncHH();
 
 /* ===== 시작 ===== */
 renderSync();
