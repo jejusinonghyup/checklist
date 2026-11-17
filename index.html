@@ -69,6 +69,7 @@
   .rr:last-child{border-bottom:0}
   .rr-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
   .rr-task{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+  .rr-with{font-size:12.5px;color:var(--g)}
   .rr-who{align-self:flex-start;background:var(--bg);color:var(--g);border-radius:99px;padding:1px 10px;font-size:12px;font-weight:700}
   .rr-when,.rr-note{font-size:12.5px;color:var(--mute);overflow-wrap:anywhere}
   .rr .ctl{display:flex;gap:4px}
@@ -141,6 +142,10 @@
   .fld label{display:block;font-size:12.5px;font-weight:700;color:var(--mute);margin-bottom:4px}
   .fld input,.fld textarea,.fld select{width:100%;font:inherit;font-size:15px;padding:9px 10px;border:1px solid #c9d4ce;border-radius:9px;background:#fff;color:var(--ink)}
   .fld textarea{min-height:130px;resize:vertical}
+  .chkf{display:flex;flex-wrap:wrap;gap:6px;max-height:34vh;overflow:auto}
+  .chkf label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:14px;font-weight:600;color:var(--ink);border:1px solid #c9d4ce;border-radius:99px;padding:6px 12px;cursor:pointer;background:#fff}
+  .chkf label:has(input:checked){background:var(--g-bg);border-color:var(--g2);color:var(--g)}
+  .fld .chkf input{width:auto;padding:0;accent-color:var(--g2)}
   .gridf .gh,.gridf .grow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.25fr) 28px;gap:6px;margin-bottom:6px;align-items:center}
   .gridf .gh span{font-size:12px;font-weight:700;color:var(--mute);padding-left:2px}
   .gridf .grow input{padding:8px 6px;font-size:14.5px;min-width:0;width:100%}
@@ -254,12 +259,10 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 /* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
 const firebaseConfig = {
-  apiKey: "AIzaSyCwuWD8Zks7PDppvkU1vlCXQlvDFA9_PJs",
-  authDomain: "checklist-f6795.firebaseapp.com",
-  projectId: "checklist-f6795",
-  storageBucket: "checklist-f6795.firebasestorage.app",
-  messagingSenderId: "901255037556",
-  appId: "1:901255037556:web:55953089f92bcb788ec721"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
 };
 const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
 const TPL_COL = "checklistTemplates"; // 저장된 템플릿 (구조만, 체크 없음)
@@ -452,6 +455,7 @@ function openForm({ title, message, fields = [], ok = "확인", danger = false, 
       const id = "f" + i;
       let inp;
       if(f.type === "textarea") inp = `<textarea id="${id}" placeholder="${esc(f.placeholder||"")}">${esc(f.value||"")}</textarea>`;
+      else if(f.type === "checks") inp = `<div id="${id}" class="chkf">${f.options.length ? f.options.map(o => `<label><input type="checkbox" value="${esc(o)}" ${(f.value||[]).includes(o)?"checked":""}><span>${esc(o)}</span></label>`).join("") : `<div class="hint" style="margin:0">등록된 직원이 없어요. 아래에 직접 입력하세요.</div>`}</div>`;
       else if(f.type === "grid") inp = `<div id="${id}" class="gridf">${gridHTML(f)}</div>`;
       else if(f.type === "select") inp = `<select id="${id}">${f.options.map(o => `<option value="${esc(o.value)}" ${o.value===f.value?"selected":""}>${esc(o.label)}</option>`).join("")}</select>`;
       else inp = `<input id="${id}" type="text" value="${esc(f.value||"")}" placeholder="${esc(f.placeholder||"")}" ${f.required?"required":""} autocomplete="off">`;
@@ -461,7 +465,7 @@ function openForm({ title, message, fields = [], ok = "확인", danger = false, 
     const finish = v => { if(settled) return; settled = true; if(d.open){ d._skip = true; d.close(); } res(v); };
     const submit = () => {
       const out = {};
-      fields.forEach((f, i) => { out[f.key] = f.type === "grid" ? gridRows($("f" + i), f) : $("f" + i).value; });
+      fields.forEach((f, i) => { out[f.key] = f.type === "grid" ? gridRows($("f" + i), f) : f.type === "checks" ? [...$("f" + i).querySelectorAll("input:checked")].map(x => x.value) : $("f" + i).value; });
       finish(out);
     };
     $("dlgOk").onclick = submit;
@@ -995,6 +999,7 @@ $("nList").addEventListener("click", async e => {
 });
 
 /* ===== 업무 분장 (담당자별 업무표) ===== */
+const whoList = s => String(s || "").split(/[,，、]/).map(x => x.trim()).filter(Boolean);
 const rosterArr = l => Object.entries(l.roster || {}).map(([id, r]) => ({ id, ...r })).sort((a, b) => (a.ord || 0) - (b.ord || 0));
 const cleanRoster = arr => (arr || []).map(r => ({ task:r.task || "", who:r.who || "", when:r.when || "", note:r.note || "" }));
 const rosterMap = arr => { const o = {}; cleanRoster(arr).forEach((r, i) => { o[uid("r")] = { ...r, ord:Date.now() + i }; }); return o; };
@@ -1004,35 +1009,29 @@ function renderRoster(l, canCheck){
   const head = `<div class="r-tools"><div class="seg"><button type="button" class="seg-b ${rosterView==="who"?"on":""}" data-act="rview" data-k="who">담당자별</button><button type="button" class="seg-b ${rosterView==="order"?"on":""}" data-act="rview" data-k="order">입력 순서</button></div>${canCheck ? `<button type="button" class="btn pri sm" data-act="r-add">＋ 업무 추가</button>` : ""}</div>`;
   if(!rows.length) return head + `<div class="empty">아직 업무 분장이 없어요.${canCheck ? "<br>‘＋ 업무 추가’로 담당자와 맡은 일을 적어 보세요." : ""}</div>`;
   const ctl = r => canCheck ? `<span class="ctl"><button type="button" class="ib" data-act="r-edit" data-r="${r.id}" title="수정">✎</button><button type="button" class="ib del" data-act="r-del" data-r="${r.id}" title="삭제">✕</button></span>` : "";
-  const card = (r, showWho) => `<div class="rr"><div class="rr-main">${showWho ? `<span class="rr-who">${esc(r.who || "미정")}</span>` : ""}<span class="rr-task">${esc(r.task)}</span>${r.when ? `<span class="rr-when">🕘 ${esc(r.when)}</span>` : ""}${r.note ? `<span class="rr-note">${esc(r.note)}</span>` : ""}</div>${ctl(r)}</div>`;
+  const card = (r, showWho, showKey = "") => `<div class="rr"><div class="rr-main">${showWho ? `<span class="rr-who">${esc(whoList(r.who).join(" · ") || "미정")}</span>` : ""}<span class="rr-task">${esc(r.task)}</span>${!showWho && whoList(r.who).length > 1 ? `<span class="rr-with">👥 함께: ${esc(whoList(r.who).filter(n => n !== showKey).join(", "))}</span>` : ""}${r.when ? `<span class="rr-when">🕘 ${esc(r.when)}</span>` : ""}${r.note ? `<span class="rr-note">${esc(r.note)}</span>` : ""}</div>${ctl(r)}</div>`;
   if(rosterView === "order") return head + `<section class="sec"><div class="sec-b">${rows.map(r => card(r, true)).join("")}</div></section>`;
   const order = [], by = new Map();
-  rows.forEach(r => { const k = (r.who || "").trim() || "미정"; if(!by.has(k)){ by.set(k, []); order.push(k); } by.get(k).push(r); });
+  rows.forEach(r => { (whoList(r.who).length ? whoList(r.who) : ["미정"]).forEach(k => { if(!by.has(k)){ by.set(k, []); order.push(k); } by.get(k).push(r); }); });
   order.sort((a, b) => (a === "미정") - (b === "미정"));
-  return head + order.map(k => `<section class="sec"><div class="sec-h" style="cursor:default"><h2>${esc(k)}</h2><span class="cnt">${by.get(k).length}건</span></div><div class="sec-b">${by.get(k).map(r => card(r, false)).join("")}</div></section>`).join("");
+  return head + order.map(k => `<section class="sec"><div class="sec-h" style="cursor:default"><h2>${esc(k)}</h2><span class="cnt">${by.get(k).length}건</span></div><div class="sec-b">${by.get(k).map(r => card(r, false, k)).join("")}</div></section>`).join("");
 }
 async function editRoster(l, r){
   if(!guard(true, l.id)) return;
   const names = [...new Set(staffRows.map(x => String(x.name || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const cur = r ? (r.who || "") : "", inList = !cur || names.includes(cur);
-  const opts = [{ value:"", label:"(미정)" }, ...names.map(n => ({ value:n, label:n })), { value:"__custom", label:"직접 입력…" }];
+  const curList = r ? whoList(r.who) : [], picked = curList.filter(n => names.includes(n)), extra = curList.filter(n => !names.includes(n));
   const v = await openForm({ title:r ? "업무 수정" : "업무 추가", ok:"저장",
     fields:[
-      { key:"pick", label:"담당자", type:"select", options:opts, value:inList ? cur : "__custom" },
-      { key:"custom", label:"직접 입력 (여러 명이면 쉼표로)", value:inList ? "" : cur, placeholder:"예) 홍길동, 협력사 직원" },
       { key:"task", label:"맡은 일", required:true, value:r ? r.task : "", placeholder:"예) 5.0초 게임 진행" },
+      { key:"picks", type:"checks", label:"담당자 (여러 명 선택 가능 · 비우면 미정)", options:names, value:picked },
+      { key:"custom", label:"목록에 없는 담당자 (여러 명이면 쉼표로)", value:extra.join(", "), placeholder:"예) 홍길동, 협력사 직원" },
       { key:"when", label:"시간·장소 (선택)", value:r ? (r.when || "") : "", placeholder:"예) 11/18 10:00~12:00 · 1층 로비" },
       { key:"note", label:"비고 (선택)", value:r ? (r.note || "") : "", hint:"전화번호 같은 개인정보는 적지 마세요. 로그인 없이도 볼 수 있는 화면이에요." }
-    ],
-    after: body => {
-      const sel = body.querySelector("#f0"), cu = body.querySelector('[data-key="custom"]');
-      const sync = () => { cu.style.display = sel.value === "__custom" ? "" : "none"; };
-      sel.onchange = sync; sync();
-    }
+    ]
   });
   if(v === null) return;
   const task = v.task.trim(); if(!task){ toast("맡은 일을 입력해 주세요"); return; }
-  const whoName = v.pick === "__custom" ? v.custom.trim() : v.pick;
+  const whoName = [...new Set([...v.picks, ...whoList(v.custom)])].join(", ");
   const id = r ? r.id : uid("r");
   const row = { who:whoName, task, when:v.when.trim(), note:v.note.trim(), ord:r ? (r.ord || 0) : Date.now() };
   if(guard(true, l.id)) updateDoc(ref(l.id), { ["roster." + id]: row, updatedAt:serverTimestamp() }).catch(fail);
