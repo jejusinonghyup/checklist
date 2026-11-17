@@ -139,10 +139,15 @@
   .gridf .gx{appearance:none;border:1px solid var(--line);background:#fff;border-radius:7px;height:34px;color:var(--red);cursor:pointer;font-size:13px}
   .gridf .gbox{max-height:44vh;overflow:auto;padding-bottom:2px}
   .gridf .gadd{margin-top:2px}
-  .item-sel{flex:0 0 auto;width:22px;height:22px;margin:8px 2px 0 0;accent-color:var(--g2);cursor:pointer}
+  li.item input.st{cursor:default;opacity:1;margin-top:5px}
+  li.item.edit input.st:disabled:checked{background:var(--g2);border-color:var(--g2)}
+  li.item.edit .ctl{align-items:center}
+  li.item input.item-sel{width:26px;height:26px;border-radius:50%;border:2px solid #4a7fc1;margin:0 4px 0 0;background:#fff}
+  li.item input.item-sel:checked{background:#2f6fbd;border-color:#2f6fbd}
+  li.item input.item-sel:checked::after{width:5px;height:10px;border-width:0 3px 3px 0}
   .grp .gsel{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--mute);margin-left:8px;cursor:pointer;font-weight:400}
   .grp .gsel input{width:18px;height:18px;accent-color:var(--g2)}
-  li.item.edit.picked{background:var(--g-bg)}
+  li.item.edit.picked{background:#e8f0fb}
   #selBar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:none;background:#1c2420;color:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
   #selBar.on{display:block}
   #selBar .in{max-width:880px;margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -241,12 +246,10 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 /* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
 const firebaseConfig = {
-  apiKey: "AIzaSyCwuWD8Zks7PDppvkU1vlCXQlvDFA9_PJs",
-  authDomain: "checklist-f6795.firebaseapp.com",
-  projectId: "checklist-f6795",
-  storageBucket: "checklist-f6795.firebasestorage.app",
-  messagingSenderId: "901255037556",
-  appId: "1:901255037556:web:55953089f92bcb788ec721"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
 };
 const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
 const TPL_COL = "checklistTemplates"; // 저장된 템플릿 (구조만, 체크 없음)
@@ -875,7 +878,7 @@ function renderList(){
         const memo = last ? `<span class="memo"><b>${esc(last.byName || last.by || "")}</b> ${esc(last.text.replace(/\s*\n\s*/g, " ").slice(0, 60))}${last.text.length > 60 ? "…" : ""}</span>` : "";
         const nb = (nl.length || canCheck) ? `<button class="note-btn ${nl.length ? "has" : ""}" data-act="note-open" data-t="${i.id}" title="메모">💬${nl.length ? " " + nl.length : ""}</button>` : "";
         const meta = c.checked ? `<span class="meta">✓ ${esc(c.byName || c.by || "")} · ${esc(fmt(c.at))}</span>` : "";
-        if(editing) return `<li class="item edit ${sel.has(i.id)?"picked":""}"><input type="checkbox" class="item-sel" data-act="item-sel" data-i="${i.id}" ${sel.has(i.id)?"checked":""} aria-label="선택"><span class="txt">${esc(i.text)}${sup}</span><span class="ctl">
+        if(editing) return `<li class="item edit ${c.checked?"done":""} ${sel.has(i.id)?"picked":""}"><input type="checkbox" class="st" disabled ${c.checked?"checked":""} aria-label="${c.checked?"체크됨":"체크 안 됨"}"><span class="txt"><span class="t">${esc(i.text)}</span>${sup}${meta}</span><span class="ctl"><input type="checkbox" class="item-sel" data-act="item-sel" data-i="${i.id}" ${sel.has(i.id)?"checked":""} aria-label="선택" title="선택">
           ${ib("item-up","↑",`${ga} data-i="${i.id}"`)}${ib("item-down","↓",`${ga} data-i="${i.id}"`)}${ib("item-edit","✎",`${ga} data-i="${i.id}"`)}${ib("item-del","✕",`${ga} data-i="${i.id}"`,"del")}</span></li>`;
         return `<li class="item ${c.checked?"done":""} ${canCheck?"":"lock"}" data-item="${i.id}"><label>
           <input type="checkbox" ${c.checked?"checked":""} ${canCheck?"":"tabindex=\"-1\""}>
