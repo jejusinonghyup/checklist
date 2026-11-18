@@ -160,6 +160,24 @@
   li.item input.item-sel:checked::after{width:5px;height:10px;border-width:0 3px 3px 0}
   .grp .gsel{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--mute);margin-left:8px;cursor:pointer;font-weight:400}
   .grp .gsel input{width:18px;height:18px;accent-color:var(--g2)}
+  .due{display:block;width:fit-content;font-size:12px;font-weight:700;border-radius:99px;padding:1px 9px;margin-top:3px;white-space:nowrap}
+  .due.soon{background:#fff3c4;color:#8a6100;border:1px solid #f0d36b}
+  .due.late{background:#fde2e0;color:#b3261e;border:1px solid #f1b5b0}
+  .due.far{background:#eef2ef;color:var(--mute);border:1px solid var(--line);font-weight:600}
+  li.item.d-late:not(.done){box-shadow:inset 4px 0 0 #d9463d;background:#fff6f5}
+  li.item.d-soon:not(.done){box-shadow:inset 4px 0 0 #e8b400;background:#fffbea}
+  .dueNote{border-radius:10px;padding:8px 12px;margin:0 0 10px;font-size:13.5px;font-weight:600;display:flex;gap:10px;flex-wrap:wrap}
+  .dueNote.late{background:#fde2e0;color:#b3261e}.dueNote.soon{background:#fff3c4;color:#8a6100}.dueNote.both{background:#fde2e0;color:#7a1f19}
+  .dh{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:30px;border:1px solid var(--line);background:#f4f7f5;border-radius:7px;font-size:18px;line-height:1;color:var(--mute);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+  .dh:active{cursor:grabbing}
+  li.item.edit{cursor:pointer}
+  li.item.edit:hover{background:#f6faf7}
+  .gname{cursor:pointer;border-bottom:1px dashed var(--g2)}
+  .dragging{opacity:.25}
+  .dragghost{position:fixed;z-index:60;pointer-events:none;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.28);border-radius:10px;opacity:.96;margin:0}
+  .drop-b{box-shadow:inset 0 3px 0 #2f6fbd}
+  .drop-a{box-shadow:inset 0 -3px 0 #2f6fbd}
+  .drop-in{outline:2px dashed #2f6fbd;outline-offset:-2px}
   li.item.edit.picked{background:#e8f0fb}
   #selBar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:none;background:#1c2420;color:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
   #selBar.on{display:block}
@@ -188,7 +206,7 @@
   </div>
 </header>
 
-<div id="selBar"><div class="in"><b id="selCnt"></b><button class="btn line" data-act="sel-move">이동</button><button class="btn dl" data-act="sel-del">삭제</button><button class="btn line" data-act="sel-clear">해제</button></div></div>
+<div id="selBar"><div class="in"><b id="selCnt"></b><button class="btn line" data-act="sel-due">기일</button><button class="btn line" data-act="sel-move">이동</button><button class="btn dl" data-act="sel-del">삭제</button><button class="btn line" data-act="sel-clear">해제</button></div></div>
 <main>
   <div id="setup"></div>
   <div id="view"></div>
@@ -259,12 +277,10 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 /* ===== Firebase 설정: 스탬프 앱과 같은 프로젝트 값을 붙여 넣으세요 ===== */
 const firebaseConfig = {
-  apiKey: "AIzaSyCwuWD8Zks7PDppvkU1vlCXQlvDFA9_PJs",
-  authDomain: "checklist-f6795.firebaseapp.com",
-  projectId: "checklist-f6795",
-  storageBucket: "checklist-f6795.firebasestorage.app",
-  messagingSenderId: "901255037556",
-  appId: "1:901255037556:web:55953089f92bcb788ec721"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
 };
 const COL = "checklists";            // 체크리스트 문서 (구조 + 체크 상태)
 const TPL_COL = "checklistTemplates"; // 저장된 템플릿 (구조만, 체크 없음)
@@ -457,6 +473,7 @@ function openForm({ title, message, fields = [], ok = "확인", danger = false, 
       const id = "f" + i;
       let inp;
       if(f.type === "textarea") inp = `<textarea id="${id}" placeholder="${esc(f.placeholder||"")}">${esc(f.value||"")}</textarea>`;
+      else if(f.type === "date") inp = `<input id="${id}" type="date" value="${esc(f.value||"")}">`;
       else if(f.type === "checks") inp = `<div id="${id}" class="chkf">${f.options.length ? f.options.map(o => `<label><input type="checkbox" value="${esc(o)}" ${(f.value||[]).includes(o)?"checked":""}><span>${esc(o)}</span></label>`).join("") : `<div class="hint" style="margin:0">등록된 직원이 없어요. 아래에 직접 입력하세요.</div>`}</div>`;
       else if(f.type === "grid") inp = `<div id="${id}" class="gridf">${gridHTML(f)}</div>`;
       else if(f.type === "select") inp = `<select id="${id}">${f.options.map(o => `<option value="${esc(o.value)}" ${o.value===f.value?"selected":""}>${esc(o.label)}</option>`).join("")}</select>`;
@@ -721,7 +738,7 @@ async function createList(pre = {}){
   if(v.src === "ax") sections = buildSections(TEMPLATE_AX);
   else if(v.src.startsWith("tpl:")){ const t = templates.get(v.src.slice(4)); if(t){ sections = reid(t.sections); roster = t.roster || []; } }
   else if(v.src === "text"){ sections = parseOutline(v.text); roster = sections.roster || []; }
-  else if(v.src.startsWith("copy:")){ const o = lists.get(v.src.slice(5)); if(o){ sections = clone(o.sections); roster = rosterArr(o); } }
+  else if(v.src.startsWith("copy:")){ const o = lists.get(v.src.slice(5)); if(o){ sections = stripDue(clone(o.sections)); roster = rosterArr(o); } }
   if(!sections.length) sections = [{ id:uid("s"), title:"체크리스트", date:"", note:"", groups:[{ id:uid("g"), name:"", items:[] }] }];
   const r = doc(collection(db, COL));
   setDoc(r, { title, dateText:v.dateText.trim(), status:"active", sections, checks:{}, ...(roster.length ? { roster:rosterMap(roster) } : {}),
@@ -738,7 +755,7 @@ function cloneList(id){
   .then(v => {
     if(!v || !v.title.trim()) return;
     const r = doc(collection(db, COL));
-    setDoc(r, { title:v.title.trim(), dateText:v.dateText.trim(), status:"active", sections:clone(l.sections), checks:{}, ...(rosterArr(l).length ? { roster:rosterMap(rosterArr(l)) } : {}),
+    setDoc(r, { title:v.title.trim(), dateText:v.dateText.trim(), status:"active", sections:stripDue(clone(l.sections)), checks:{}, ...(rosterArr(l).length ? { roster:rosterMap(rosterArr(l)) } : {}),
       createdBy:user.email.toLowerCase(), createdByName:myName(),
       createdAt:serverTimestamp(), updatedAt:serverTimestamp() }).catch(fail);
     location.hash = "#/c/" + r.id;
@@ -748,17 +765,17 @@ function cloneList(id){
 
 /* ===== 내보내기 ===== */
 function rowsOf(l){
-  const out = [["유형","구분","소분류","항목","수량","담당","상태","체크한 사람","체크 시각","메모"]];
+  const out = [["유형","구분","소분류","항목","수량","담당","상태","체크한 사람","체크 시각","메모","기일"]];
   const nm = {};
   Object.values(l.notes || {}).sort((a, b) => (toD(a.at)?.getTime() || 0) - (toD(b.at)?.getTime() || 0))
     .forEach(n => { (nm[n.t] = nm[n.t] || []).push(`${n.byName || n.by || ""}: ${n.text.replace(/\s*\n\s*/g, " ")}`); });
   l.sections.forEach(s => s.groups.forEach(g => g.items.forEach(i => {
     const c = l.checks[i.id] || {};
     out.push([s.kind === "supply" ? "준비물" : "할 일", s.title + (s.date ? ` (${s.date})` : ""), g.name, i.text, i.qty || "", i.owner || "",
-      c.checked ? "완료" : "", c.checked ? (c.byName || c.by || "") : "", c.checked ? fmt(c.at) : "", (nm[i.id] || []).join(" / ")]);
+      c.checked ? "완료" : "", c.checked ? (c.byName || c.by || "") : "", c.checked ? fmt(c.at) : "", (nm[i.id] || []).join(" / "), i.due || ""]);
   })));
-  rosterArr(l).forEach(r => out.push(["업무 분장", r.when || "", "", r.task, "", r.who || "", "", "", "", r.note || ""]));
-  (nm["_p"] || []).forEach(t => out.push(["공유 메모", "", "", t, "", "", "", "", "", ""]));
+  rosterArr(l).forEach(r => out.push(["업무 분장", r.when || "", "", r.task, "", r.who || "", "", "", "", r.note || "", ""]));
+  (nm["_p"] || []).forEach(t => out.push(["공유 메모", "", "", t, "", "", "", "", "", "", ""]));
   return out;
 }
 function stamp(){ return new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"short"}).format(new Date()).replace(/[-: ]/g,"").slice(0,12); }
@@ -779,6 +796,7 @@ async function copyTSV(l){
 
 /* ===== 화면 ===== */
 function render(){
+  if(drag){ pendingRender = true; return; }
   renderAuth(); renderSetup();
   const isList = route.name === "list";
   $("backBtn").style.display = isList ? "block" : "none";
@@ -879,6 +897,9 @@ function renderList(){
 
   if(ltab === "roster"){ $("view").innerHTML = html + renderRoster(l, canCheck); return; }
   const ib = (act, label, attrs, cls = "") => `<button class="ib ${cls}" data-act="${act}" ${attrs} title="${esc(label)}">${label}</button>`;
+  { let late = 0, soon = 0;
+    l.sections.forEach(s => s.groups.forEach(g => g.items.forEach(i => { if(l.checks[i.id]?.checked) return; const d = dueInfo(i.due, false); if(d && d.cls === "late") late++; else if(d && d.cls === "soon") soon++; })));
+    if(late || soon) html += `<div class="dueNote ${late && soon ? "both" : late ? "late" : "soon"}">⏰ ${late ? `<span>기일 지남·오늘 ${late}건</span>` : ""}${soon ? `<span>기일 임박(${DUE_SOON}일 이내) ${soon}건</span>` : ""}</div>`; }
   let shownSecs = 0;
   l.sections.forEach((s, si) => {
     if((s.kind || "task") !== ltab) return;
@@ -896,25 +917,27 @@ function renderList(){
         const nl = notesBy[i.id] || [], last = nl[nl.length - 1];
         const memo = last ? `<span class="memo"><b>${esc(last.byName || last.by || "")}</b> ${esc(last.text.replace(/\s*\n\s*/g, " ").slice(0, 60))}${last.text.length > 60 ? "…" : ""}</span>` : "";
         const nb = (nl.length || canCheck) ? `<button class="note-btn ${nl.length ? "has" : ""}" data-act="note-open" data-t="${i.id}" title="메모">💬${nl.length ? " " + nl.length : ""}</button>` : "";
+        const dinfo = dueInfo(i.due, !!c.checked), dcls = dinfo && !c.checked && dinfo.cls !== "far" ? " d-" + dinfo.cls : "";
+        const dbadge = dinfo ? `<span class="due ${dinfo.cls}">${dinfo.text}</span>` : "";
         const meta = c.checked ? `<span class="meta">✓ ${esc(c.byName || c.by || "")} · ${esc(fmt(c.at))}</span>` : "";
-        if(editing) return `<li class="item edit ${c.checked?"done":""} ${sel.has(i.id)?"picked":""}"><input type="checkbox" class="st" disabled ${c.checked?"checked":""} aria-label="${c.checked?"체크됨":"체크 안 됨"}"><span class="txt"><span class="t">${esc(i.text)}</span>${sup}${meta}</span><span class="ctl"><input type="checkbox" class="item-sel" data-act="item-sel" data-i="${i.id}" ${sel.has(i.id)?"checked":""} aria-label="선택" title="선택">
-          ${ib("item-up","↑",`${ga} data-i="${i.id}"`)}${ib("item-down","↓",`${ga} data-i="${i.id}"`)}${ib("item-edit","✎",`${ga} data-i="${i.id}"`)}${ib("item-del","✕",`${ga} data-i="${i.id}"`,"del")}</span></li>`;
-        return `<li class="item ${c.checked?"done":""} ${canCheck?"":"lock"}" data-item="${i.id}"><label>
+        if(editing) return `<li class="item edit ${c.checked?"done":""} ${sel.has(i.id)?"picked":""}${dcls}" data-act="item-edit" ${ga} data-i="${i.id}"><input type="checkbox" class="st" disabled ${c.checked?"checked":""} aria-label="${c.checked?"체크됨":"체크 안 됨"}"><span class="txt"><span class="t">${esc(i.text)}</span>${sup}${dbadge}${meta}</span><span class="ctl"><input type="checkbox" class="item-sel" data-act="item-sel" data-i="${i.id}" ${sel.has(i.id)?"checked":""} aria-label="선택" title="선택">
+          <span class="dh" data-drag="item" ${ga} data-i="${i.id}" title="끌어서 이동">≡</span>${ib("item-del","✕",`${ga} data-i="${i.id}"`,"del")}</span></li>`;
+        return `<li class="item ${c.checked?"done":""} ${canCheck?"":"lock"}${dcls}" data-item="${i.id}"><label>
           <input type="checkbox" ${c.checked?"checked":""} ${canCheck?"":"tabindex=\"-1\""}>
-          <span class="txt"><span class="t">${esc(i.text)}</span>${sup}${meta}${memo}</span></label>${nb}</li>`;
+          <span class="txt"><span class="t">${esc(i.text)}</span>${sup}${dbadge}${meta}${memo}</span></label>${nb}</li>`;
       });
       if(editing){
         const allSel = g.items.length && g.items.every(i => sel.has(i.id));
-        body += `<div class="grp"><span class="nm">${esc(g.name || "(이름 없는 그룹)")}${g.items.length?`<label class="gsel"><input type="checkbox" data-act="grp-sel" ${ga} ${allSel?"checked":""}>전체</label>`:""}</span><span class="ctl">
-          ${ib("grp-up","↑",ga)}${ib("grp-move","⇄",ga)}${ib("grp-down","↓",ga)}${ib("grp-edit","✎",ga)}${ib("grp-del","✕",ga,"del")}</span></div>
-          <ul>${lis.join("")}</ul><div class="add-row">${ib("item-add","＋ 항목 추가",ga)}</div>`;
+        body += `<div class="grp" ${ga}><span class="nm"><span class="gname" data-act="grp-edit" ${ga} title="눌러서 이름 수정">${esc(g.name || "(이름 없는 그룹)")}</span>${g.items.length?`<label class="gsel"><input type="checkbox" data-act="grp-sel" ${ga} ${allSel?"checked":""}>전체</label>`:""}</span><span class="ctl">
+          <span class="dh" data-drag="grp" ${ga} title="끌어서 이동">≡</span>${ib("grp-move","⇄",ga)}${ib("grp-del","✕",ga,"del")}</span></div>
+          <ul ${ga}>${lis.join("")}</ul><div class="add-row" ${ga} data-gend="1">${ib("item-add","＋ 항목 추가",ga)}</div>`;
       } else if(lis.length){
         shown += lis.length;
         body += (g.name ? `<div class="grp"><span class="nm">${esc(g.name)}</span></div>` : "") + `<ul>${lis.join("")}</ul>`;
       }
     });
     if(!editing && !shown) body = `<div class="empty" style="padding:14px">${onlyOpen && its.length ? "남은 항목이 없어요 🎉" : "항목이 없어요"}</div>`;
-    if(editing) body += `<div class="add-row">${ib("grp-add","＋ 소분류 추가",sa)}</div>`;
+    if(editing) body += `<div class="add-row" ${sa} data-send="1">${ib("grp-add","＋ 소분류 추가",sa)}</div>`;
     const ctl = editing ? `<span class="ctl">${ib("sec-up","↑",sa)}${ib("sec-down","↓",sa)}${ib("sec-edit","✎",sa)}${ib("sec-del","✕",sa,"del")}</span>` : "";
     html += `<section class="sec ${closed.has(s.id)?"closed":""}" data-sec="${s.id}">
       <div class="sec-h" data-act="sec-fold" ${sa}><span class="chev">▼</span>
@@ -1001,6 +1024,18 @@ $("nList").addEventListener("click", async e => {
 });
 
 /* ===== 업무 분장 (담당자별 업무표) ===== */
+/* ===== 기일(마감일): 3일 전부터 노랑, 당일·지남은 빨강 ===== */
+const DUE_SOON = 3;
+function dueInfo(due, done){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(due || ""); if(!m) return null;
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const days = Math.round((new Date(+m[1], +m[2] - 1, +m[3]) - t) / 86400000);
+  const cls = done ? "far" : days <= 0 ? "late" : days <= DUE_SOON ? "soon" : "far";
+  const rel = days === 0 ? "오늘" : days > 0 ? `D-${days}` : `${-days}일 지남`;
+  return { cls, days, text:`📅 ${+m[2]}/${+m[3]} · ${done ? "완료" : rel}` };
+}
+const dueBadge = (due, done) => { const d = dueInfo(due, done); return d ? `<span class="due ${d.cls}">${d.text}</span>` : ""; };
+const stripDue = secs => { secs.forEach(s => s.groups.forEach(g => g.items.forEach(i => { delete i.due; }))); return secs; };
 const whoList = s => String(s || "").split(/[,，、]/).map(x => x.trim()).filter(Boolean);
 const rosterArr = l => Object.entries(l.roster || {}).map(([id, r]) => ({ id, ...r })).sort((a, b) => (a.ord || 0) - (b.ord || 0));
 const cleanRoster = arr => (arr || []).map(r => ({ task:r.task || "", who:r.who || "", when:r.when || "", note:r.note || "" }));
@@ -1090,7 +1125,7 @@ function csvToSections(text){
   const rows = parseCSV(text); if(!rows.length) return [];
   const head = rows[0].map(h => String(h).trim());
   const ix = n => head.indexOf(n), iI = ix("항목"); if(iI < 0) return null;
-  const iT = ix("유형"), iS = ix("구분"), iG = ix("소분류"), iQ = ix("수량"), iO = ix("담당"), iD = ix("일정"), iN = ix("안내"), iM = ix("메모");
+  const iT = ix("유형"), iS = ix("구분"), iG = ix("소분류"), iQ = ix("수량"), iO = ix("담당"), iD = ix("일정"), iN = ix("안내"), iM = ix("메모"), iU = ix("기일");
   const get = (r, i) => i < 0 ? "" : String(r[i] ?? "").trim();
   const secs = [], byKey = new Map(), roster = [];
   for(const r of rows.slice(1)){
@@ -1110,7 +1145,7 @@ function csvToSections(text){
     let grp = sec.groups.find(g => g.name === gname);
     if(!grp){ grp = { id:uid("g"), name:gname, items:[] }; sec.groups.push(grp); }
     const qty = get(r, iQ), owner = get(r, iO);
-    grp.items.push({ id:uid("i"), text:txt, ...(kind === "supply" && qty ? { qty } : {}), ...(kind === "supply" && owner ? { owner } : {}) });
+    grp.items.push({ id:uid("i"), text:txt, ...(kind === "supply" && qty ? { qty } : {}), ...(kind === "supply" && owner ? { owner } : {}), ...(/^\d{4}-\d{2}-\d{2}$/.test(get(r, iU)) ? { due:get(r, iU) } : {}) });
   }
   secs.roster = roster;
   return secs;
@@ -1396,12 +1431,14 @@ async function handleAct(el){
       const v = await openForm({ title: sup ? "준비물 추가" : "항목 추가", ok:"추가",
         fields: sup
           ? [{ key:"rows", type:"grid", label:"준비물 (칸에 나눠 입력 · 수량·담당은 비워도 돼요)", rows:4,
-               hint:"Enter로 다음 칸 · 마지막 칸에서 Enter 하면 새 줄이 생겨요.\n엑셀·구글 시트에서 복사해 첫 칸에 붙여넣으면 한 번에 채워져요." }]
-          : [{ key:"text", label:"항목 (여러 줄이면 한 줄에 하나씩)", type:"textarea" }] });
+               hint:"Enter로 다음 칸 · 마지막 칸에서 Enter 하면 새 줄이 생겨요.\n엑셀·구글 시트에서 복사해 첫 칸에 붙여넣으면 한 번에 채워져요." },
+             { key:"due", type:"date", label:"기일 (선택 · 추가하는 항목 모두에 적용)" }]
+          : [{ key:"text", label:"항목 (여러 줄이면 한 줄에 하나씩)", type:"textarea" },
+             { key:"due", type:"date", label:"기일 (선택 · 추가하는 항목 모두에 적용)" }] });
       if(v){
         const items = sup
-          ? v.rows.filter(r => r.name).map(r => ({ id:uid("i"), text:r.name, ...(r.qty ? { qty:r.qty } : {}), ...(r.owner ? { owner:r.owner } : {}) }))
-          : v.text.split(/\r?\n/).map(x => x.trim()).filter(Boolean).map(t => ({ id:uid("i"), text:t }));
+          ? v.rows.filter(r => r.name).map(r => ({ id:uid("i"), text:r.name, ...(r.qty ? { qty:r.qty } : {}), ...(r.owner ? { owner:r.owner } : {}), ...(v.due ? { due:v.due } : {}) }))
+          : v.text.split(/\r?\n/).map(x => x.trim()).filter(Boolean).map(t => ({ id:uid("i"), text:t, ...(v.due ? { due:v.due } : {}) }));
         if(sup && v.rows.some(r => !r.name)) toast("이름이 빈 줄은 건너뛰었어요");
         if(items.length) mutate(l.id, secs => { findGrp(secs, S, G).items.push(...items); });
       }
@@ -1412,10 +1449,12 @@ async function handleAct(el){
       const it = findGrp(l.sections, S, G).items.find(x => x.id === I);
       const fields = [{ key:"text", label: sup ? "준비물" : "항목", type:"textarea", value:it.text }];
       if(sup) fields.push({ key:"qty", label:"수량 (선택)", value:it.qty || "", placeholder:"예) 35세트" }, { key:"owner", label:"담당 (선택)", value:it.owner || "" });
+      fields.push({ key:"due", type:"date", label:"기일 (선택 · 비우면 없음)", value:it.due || "" });
       const v = await openForm({ title: sup ? "준비물 수정" : "항목 수정", fields });
       if(v && v.text.trim()) mutate(l.id, secs => {
         const x = findGrp(secs, S, G).items.find(y => y.id === I);
         x.text = v.text.trim().replace(/\s*\n\s*/g, " ");
+        if(v.due) x.due = v.due; else delete x.due;
         if(sup){ const q = (v.qty || "").trim(), o = (v.owner || "").trim(); if(q) x.qty = q; else delete x.qty; if(o) x.owner = o; else delete x.owner; }
       });
       return;
@@ -1425,6 +1464,13 @@ async function handleAct(el){
     case "grp-sel": {
       const g = findGrp(l.sections, S, G), all = g.items.every(i => sel.has(i.id));
       g.items.forEach(i => all ? sel.delete(i.id) : sel.add(i.id)); return render();
+    }
+    case "sel-due": {
+      const ids = new Set(sel); if(!ids.size) return;
+      const v = await openForm({ title:`${ids.size}개 항목 기일`, ok:"적용", message:"선택한 항목 모두에 같은 기일을 정해요. 날짜를 지우고 적용하면 기일이 없어져요.",
+        fields:[{ key:"due", type:"date", label:"기일" }] });
+      if(v){ mutate(l.id, secs => { secs.forEach(s => s.groups.forEach(g => g.items.forEach(i => { if(ids.has(i.id)){ if(v.due) i.due = v.due; else delete i.due; } }))); }); toast(v.due ? "기일을 정했어요" : "기일을 지웠어요"); }
+      return;
     }
     case "sel-clear": sel.clear(); return render();
     case "sel-del": {
@@ -1477,8 +1523,91 @@ async function handleAct(el){
   }
 }
 
+/* ===== 끌어서 순서·위치 옮기기 (항목·소분류) ===== */
+let drag = null, pendingRender = false;
+function dragClear(){ document.querySelectorAll(".drop-b,.drop-a,.drop-in").forEach(x => x.classList.remove("drop-b", "drop-a", "drop-in")); }
+function dragTarget(){
+  dragClear(); drag.tgt = null;
+  const el = document.elementFromPoint(drag.x, drag.y); if(!el) return;
+  const y = drag.y;
+  if(drag.kind === "item"){
+    const li = el.closest("li.item.edit");
+    if(li){
+      if(li === drag.src) return;
+      const r = li.getBoundingClientRect(), after = y > r.top + r.height / 2;
+      let before = null;
+      if(after){ let n = li.nextElementSibling; if(n === drag.src) n = n.nextElementSibling; before = n ? n.dataset.i : null; }
+      else before = li.dataset.i;
+      drag.tgt = { s:li.dataset.s, g:li.dataset.g, before }; li.classList.add(after ? "drop-a" : "drop-b"); return;
+    }
+    const gh = el.closest(".grp[data-g]");
+    if(gh){ const first = gh.nextElementSibling && gh.nextElementSibling.querySelector("li.item.edit:not(.dragging)"); drag.tgt = { s:gh.dataset.s, g:gh.dataset.g, before:first ? first.dataset.i : null }; gh.classList.add("drop-in"); return; }
+    const end = el.closest(".add-row[data-gend],ul[data-g]");
+    if(end){ drag.tgt = { s:end.dataset.s, g:end.dataset.g, before:null }; end.classList.add("drop-in"); }
+  } else {
+    const gh = el.closest(".grp[data-g]");
+    if(gh){ if(gh === drag.src) return; drag.tgt = { s:gh.dataset.s, before:gh.dataset.g }; gh.classList.add("drop-b"); return; }
+    const owner = el.closest("li.item.edit,ul[data-g],.add-row[data-gend]");
+    if(owner && owner.dataset.s){
+      const h = document.querySelector(`.grp[data-g="${owner.dataset.g}"]`); if(!h || h === drag.src) return;
+      drag.tgt = { s:h.dataset.s, before:h.dataset.g }; h.classList.add("drop-b"); return;
+    }
+    const se = el.closest(".add-row[data-send]");
+    if(se){ drag.tgt = { s:se.dataset.s, before:null }; se.classList.add("drop-in"); }
+  }
+}
+function dragLoop(){
+  if(!drag) return;
+  const st = document.querySelector(".stick"), top = Math.max(st ? st.getBoundingClientRect().bottom : 0, 0) + 24, bot = window.innerHeight - (document.getElementById("selBar").classList.contains("on") ? 100 : 60);
+  let v = 0;
+  if(drag.y < top) v = -Math.min(26, 4 + (top - drag.y) / 3);
+  else if(drag.y > bot) v = Math.min(26, 4 + (drag.y - bot) / 3);
+  if(v){ window.scrollBy(0, v); drag.ghost.style.top = (drag.y - drag.offY) + "px"; dragTarget(); }
+  drag.raf = requestAnimationFrame(dragLoop);
+}
+function dragMove(e){ if(!drag) return; drag.x = e.clientX; drag.y = e.clientY; drag.ghost.style.top = (e.clientY - drag.offY) + "px"; dragTarget(); }
+function dragEnd(cancel){
+  if(!drag) return;
+  const d = drag; drag = null;
+  cancelAnimationFrame(d.raf); window.removeEventListener("pointermove", dragMove); window.removeEventListener("pointerup", dragUp); window.removeEventListener("pointercancel", dragCancel);
+  d.ghost.remove(); d.src.classList.remove("dragging"); dragClear(); document.body.style.userSelect = ""; document.body.style.webkitUserSelect = "";
+  const t = cancel ? null : d.tgt, l = lists.get(route.id);
+  if(t && l){
+    if(d.kind === "item"){
+      if(t.before !== d.i) mutate(l.id, secs => {
+        const sg = findGrp(secs, d.s, d.g), dg = findGrp(secs, t.s, t.g); if(!sg || !dg) return false;
+        const k = sg.items.findIndex(x => x.id === d.i); if(k < 0) return false;
+        const [it] = sg.items.splice(k, 1);
+        const j = t.before ? dg.items.findIndex(x => x.id === t.before) : -1;
+        if(j < 0) dg.items.push(it); else dg.items.splice(j, 0, it);
+      });
+    } else if(t.before !== d.g) mutate(l.id, secs => {
+      const ss = findSec(secs, d.s), ts = findSec(secs, t.s); if(!ss || !ts) return false;
+      const k = ss.groups.findIndex(x => x.id === d.g); if(k < 0) return false;
+      const [g] = ss.groups.splice(k, 1);
+      const j = t.before ? ts.groups.findIndex(x => x.id === t.before) : -1;
+      if(j < 0) ts.groups.push(g); else ts.groups.splice(j, 0, g);
+    });
+  }
+  pendingRender = false; render();
+}
+const dragUp = () => dragEnd(false), dragCancel = () => dragEnd(true);
+function startDrag(h, e){
+  if(drag || (e.button !== undefined && e.button > 0)) return;
+  const kind = h.dataset.drag, src = h.closest(kind === "item" ? "li.item.edit" : ".grp"); if(!src) return;
+  e.preventDefault();
+  const r = src.getBoundingClientRect(), ghost = src.cloneNode(true);
+  ghost.classList.add("dragghost"); ghost.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px`;
+  ghost.removeAttribute("data-act"); document.body.appendChild(ghost); document.body.style.userSelect = "none"; document.body.style.webkitUserSelect = "none"; src.classList.add("dragging");
+  drag = { kind, src, ghost, offY:e.clientY - r.top, x:e.clientX, y:e.clientY, s:h.dataset.s, g:h.dataset.g, i:h.dataset.i, tgt:null, raf:0 };
+  window.addEventListener("pointermove", dragMove); window.addEventListener("pointerup", dragUp); window.addEventListener("pointercancel", dragCancel);
+  drag.raf = requestAnimationFrame(dragLoop);
+}
+$("view").addEventListener("pointerdown", e => { const h = e.target.closest("[data-drag]"); if(h) startDrag(h, e); });
+
 $("selBar").addEventListener("click", e => { const a = e.target.closest("[data-act]"); if(a) handleAct(a); });
 $("view").addEventListener("click", e => {
+  if(e.target.closest("[data-drag]")){ e.preventDefault(); return; }
   const a = e.target.closest("[data-act]");
   if(a){ e.preventDefault(); handleAct(a); return; }
   const li = e.target.closest("li.item[data-item]");
